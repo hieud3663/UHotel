@@ -1,4 +1,4 @@
-# Hệ thống Quản lý Khách sạn - ASP.NET MVC
+# UHotel - Hệ thống Quản lý Khách sạn - ASP.NET MVC
 
 ## Mô tả dự án
 

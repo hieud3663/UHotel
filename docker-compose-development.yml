@@ -12,7 +12,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
-      - ConnectionStrings__DefaultConnection=Server=hotelmanagement-db.c74yqsk0gktd.ap-southeast-1.rds.amazonaws.com,1433;Database=HotelManagement;User Id=admin;Password=Dangnhapmk123;Integrated Security=False;TrustServerCertificate=True;MultipleActiveResultSets=true;
+      - ConnectionStrings__DefaultConnection=Server=localhost,1433;Database=HotelManagement;User Id=admin;Password=Dangnhapmk123;Integrated Security=False;TrustServerCertificate=True;MultipleActiveResultSets=true;
       - WEBHOOK_API_KEY=123456789
     networks:
       - hotel-network

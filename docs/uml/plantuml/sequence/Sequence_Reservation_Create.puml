@@ -1,0 +1,39 @@
+@startuml Sequence_Reservation_Create
+autonumber
+skinparam shadowing false
+title Sơ đồ tuần tự - Tạo đặt phòng
+
+actor "Nhân viên" as Staff
+participant "Màn hình tạo đặt phòng" as View
+participant "Bộ xử lý đặt phòng" as Controller
+participant "Bộ xử lý phòng" as RoomCtrl
+participant "Bộ gọi thủ tục nghiệp vụ" as DbExt
+database "Ngữ cảnh cơ sở dữ liệu" as Db
+database "Cơ sở dữ liệu" as SQL
+
+Staff -> View: Nhập thông tin đặt phòng
+View -> RoomCtrl: Yêu cầu danh sách phòng trống và bảng giá
+RoomCtrl -> Db: Truy vấn phòng, loại phòng, giá và phiếu đặt
+Db --> RoomCtrl: Trả phòng trống và giá
+RoomCtrl --> View: Hiển thị phòng trống và giá
+
+Staff -> View: Gửi biểu mẫu đặt phòng
+View -> Controller: Gửi yêu cầu tạo đặt phòng
+Controller -> Controller: Kiểm tra đăng nhập và dữ liệu nhập
+alt Dữ liệu không hợp lệ
+  Controller --> View: Trả lại màn hình kèm lỗi
+else Dữ liệu hợp lệ
+  Controller -> DbExt: Gọi xử lý tạo đặt phòng
+  DbExt -> SQL: Chạy thủ tục tạo đặt phòng
+  SQL --> DbExt: Kết quả tạo đặt phòng
+  alt Cơ sở dữ liệu trả lỗi
+    DbExt --> Controller: Thông báo lỗi
+    Controller --> View: Trả lại màn hình kèm lỗi
+  else Thành công
+    Controller -> DbExt: Gọi xử lý tạo phiếu xác nhận đặt phòng
+    DbExt -> SQL: Chạy thủ tục tạo phiếu xác nhận
+    SQL --> DbExt: Kết quả tạo phiếu
+    Controller --> View: Chuyển đến chi tiết đặt phòng
+  end
+end
+@enduml

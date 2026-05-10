@@ -1,0 +1,19 @@
+@startuml Activity_Background_RoomStatusUpdate
+skinparam shadowing false
+title Sơ đồ hoạt động - Cập nhật trạng thái phòng tự động
+
+start
+:Ứng dụng khởi động;
+:Đăng ký dịch vụ nền cập nhật trạng thái phòng;
+:Chờ 10 giây sau khi khởi động;
+while (Ứng dụng còn chạy?) is (Có)
+  :Tạo phạm vi dịch vụ mới;
+  :Lấy đối tượng truy cập cơ sở dữ liệu;
+  :Gọi thủ tục cập nhật phòng sắp đến hạn;
+  :Cập nhật phòng có lịch nhận phòng sắp tới sang đã đặt;
+  :Ghi nhật ký số phòng đã cập nhật;
+  :Chờ 5 phút theo mã nguồn hiện tại;
+endwhile (Không)
+:Ghi nhật ký dừng dịch vụ nền;
+stop
+@enduml

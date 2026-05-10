@@ -1,0 +1,28 @@
+@startuml Activity_CheckIn
+skinparam shadowing false
+title Sơ đồ hoạt động - Nhận phòng
+
+start
+:Nhân viên mở danh sách chờ nhận phòng;
+:Tải các phiếu đặt phòng hợp lệ;
+:Chọn phiếu đặt phòng cần nhận phòng;
+:Kiểm tra phiên đăng nhập và quyền truy cập;
+if (Phiếu đặt phòng tồn tại và còn hiệu lực?) then (Có)
+  if (Trạng thái phòng phù hợp để nhận phòng?) then (Có)
+    :Gọi thủ tục nhận phòng trong cơ sở dữ liệu;
+    if (Nhận phòng thành công?) then (Có)
+      :Tạo lịch sử nhận phòng;
+      :Cập nhật phòng sang đang sử dụng;
+      :Tạo phiếu xác nhận nhận phòng;
+      :Chuyển tới danh sách đang lưu trú hoặc trang chi tiết;
+    else (Không)
+      :Hiển thị lỗi nghiệp vụ từ cơ sở dữ liệu;
+    endif
+  else (Không)
+    :Thông báo trạng thái phòng không hợp lệ;
+  endif
+else (Không)
+  :Thông báo không tìm thấy phiếu đặt phòng;
+endif
+stop
+@enduml

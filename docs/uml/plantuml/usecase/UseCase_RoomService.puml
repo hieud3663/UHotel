@@ -1,0 +1,31 @@
+@startuml UseCase_RoomService
+left to right direction
+skinparam shadowing false
+title Sơ đồ ca sử dụng chi tiết - Dịch vụ phòng
+
+actor "Khách hàng" as Customer
+actor "Nhân viên/Lễ tân" as Staff
+
+rectangle "Dịch vụ phòng" {
+  usecase "Xem dịch vụ đã dùng" as UC_List
+  usecase "Tra cứu dịch vụ theo danh mục" as UC_Search
+  usecase "Thêm dịch vụ" as UC_Add
+  usecase "Cập nhật số lượng" as UC_Update
+  usecase "Xóa dịch vụ" as UC_Delete
+  usecase "Tính phí dịch vụ" as UC_Total
+}
+
+Customer --> UC_Add
+Customer --> UC_Update
+Customer --> UC_Delete
+Staff --> UC_List
+Staff --> UC_Search
+Staff --> UC_Add
+Staff --> UC_Update
+Staff --> UC_Delete
+
+UC_Add ..> UC_Search : <<include>>
+UC_Add ..> UC_Total : <<include>>
+UC_Update ..> UC_Total : <<include>>
+UC_Delete ..> UC_Total : <<include>>
+@enduml

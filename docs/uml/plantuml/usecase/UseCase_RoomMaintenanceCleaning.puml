@@ -1,0 +1,43 @@
+@startuml UseCase_RoomMaintenanceCleaning
+left to right direction
+skinparam shadowing false
+title Sơ đồ ca sử dụng chi tiết - Quản lý bảo trì và dọn phòng
+
+actor "Lễ tân" as Receptionist
+actor "Quản lý" as Manager
+actor "Nhân viên buồng phòng" as Housekeeper
+actor "Nhân viên kỹ thuật" as Technician
+
+rectangle "Quản lý bảo trì và dọn phòng" {
+  usecase "Xem danh sách công việc phòng" as UC_List
+  usecase "Tạo yêu cầu dọn phòng" as UC_CreateCleaning
+  usecase "Tạo yêu cầu bảo trì" as UC_CreateMaintenance
+  usecase "Phân công nhân viên xử lý" as UC_Assign
+  usecase "Cập nhật trạng thái công việc" as UC_UpdateTask
+  usecase "Cập nhật trạng thái phòng" as UC_UpdateRoomStatus
+  usecase "Xác nhận hoàn tất công việc" as UC_Confirm
+  usecase "Xem lịch sử xử lý phòng" as UC_History
+}
+
+Receptionist --> UC_List
+Receptionist --> UC_CreateCleaning
+Receptionist --> UC_CreateMaintenance
+Receptionist --> UC_History
+
+Manager --> UC_List
+Manager --> UC_Assign
+Manager --> UC_Confirm
+Manager --> UC_History
+
+Housekeeper --> UC_List
+Housekeeper --> UC_UpdateTask
+Technician --> UC_List
+Technician --> UC_UpdateTask
+
+UC_CreateCleaning ..> UC_UpdateRoomStatus : <<include>>
+UC_CreateMaintenance ..> UC_UpdateRoomStatus : <<include>>
+UC_Assign ..> UC_List : <<include>>
+UC_UpdateTask ..> UC_UpdateRoomStatus : <<include>>
+UC_Confirm ..> UC_UpdateRoomStatus : <<include>>
+UC_History ..> UC_List : <<extend>>
+@enduml

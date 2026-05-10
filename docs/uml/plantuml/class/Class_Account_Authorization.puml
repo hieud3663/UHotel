@@ -1,0 +1,67 @@
+@startuml Class_Account_Authorization
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+title Class chi tiết - Tài khoản và phân quyền
+
+class User {
+  +UserID
+  +Username
+  +PasswordHash
+  +Role
+  +EmployeeID
+  +IsActivate
+}
+
+class Employee {
+  +EmployeeID
+  +FullName
+  +Position
+  +Email
+  +PhoneNumber
+  +IsActivate
+}
+
+class AuthController {
+  +Login()
+  +Logout()
+}
+
+class ReceptionAccountController {
+  +Index()
+  +Create()
+  +Toggle()
+  +ResetPassword()
+  +IsManagerOrAdmin()
+}
+
+class BaseController {
+  +IsManager()
+  +IsEmployee()
+}
+
+class DashboardController {
+  +Index()
+}
+
+class HotelManagementContext {
+  +Users
+  +Employees
+}
+
+Employee "1" -- "0..1" User : login account
+AuthController --|> BaseController
+ReceptionAccountController --|> BaseController
+DashboardController --|> BaseController
+AuthController ..> User : verify BCrypt
+AuthController ..> HotelManagementContext : query
+ReceptionAccountController ..> User : create/toggle/reset
+ReceptionAccountController ..> Employee : select employee
+ReceptionAccountController ..> HotelManagementContext : save
+BaseController ..> User : reads session role
+
+note right of User
+App roles: EMPLOYEE, MANAGER, ADMIN.
+SQL constraint cần xác minh vì script ban đầu
+chỉ có ADMIN và EMPLOYEE.
+end note
+@enduml

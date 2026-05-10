@@ -1,0 +1,33 @@
+@startuml UseCase_Report
+left to right direction
+skinparam shadowing false
+title Sơ đồ ca sử dụng chi tiết - Báo cáo
+
+actor "Quản lý" as Manager
+actor "Quản trị viên" as Admin
+
+rectangle "Báo cáo" {
+  usecase "Xem trang thống kê tổng quan" as UC_Dashboard
+  usecase "Xem báo cáo doanh thu" as UC_Revenue
+  usecase "Xem công suất phòng" as UC_Occupancy
+  usecase "Xem hiệu suất nhân viên" as UC_Employee
+  usecase "Lấy dữ liệu biểu đồ doanh thu" as UC_RevenueChart
+  usecase "Lấy dữ liệu biểu đồ công suất" as UC_OccupancyChart
+  usecase "Lấy xu hướng đặt phòng" as UC_BookingTrend
+  usecase "Lấy dữ liệu hiệu suất nhân viên" as UC_EmployeeChart
+}
+
+Manager --> UC_Dashboard
+Manager --> UC_Revenue
+Manager --> UC_Occupancy
+Manager --> UC_Employee
+Admin --> UC_Dashboard
+Admin --> UC_Revenue
+Admin --> UC_Occupancy
+Admin --> UC_Employee
+
+UC_Revenue ..> UC_RevenueChart : <<include>>
+UC_Occupancy ..> UC_OccupancyChart : <<include>>
+UC_Revenue ..> UC_BookingTrend : <<include>>
+UC_Employee ..> UC_EmployeeChart : <<include>>
+@enduml

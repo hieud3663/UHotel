@@ -1,0 +1,85 @@
+@startuml UseCase_TongQuan_HeThongQuanLyKhachSan
+left to right direction
+skinparam shadowing false
+title Sơ đồ ca sử dụng tổng quan - Hệ thống quản lý khách sạn
+
+actor "Khách hàng" as Customer
+actor "Nhân viên/Lễ tân" as Staff
+actor "Quản lý" as Manager
+actor "Nhân viên buồng phòng" as Housekeeper
+actor "Nhân viên kỹ thuật" as Technician
+actor "Quản trị viên" as Admin
+actor "Cổng thanh toán" as Gateway
+actor "Dịch vụ nền" as Background
+
+Manager --|> Staff
+Admin --|> Manager
+Housekeeper --|> Staff
+Technician --|> Staff
+
+rectangle "Hệ thống quản lý khách sạn" {
+  usecase "Đăng nhập" as UC_Login
+  usecase "Đăng xuất" as UC_Logout
+  usecase "Quản lý khách hàng" as UC_Customer
+  usecase "Quản lý nhân viên" as UC_Employee
+  usecase "Quản lý tài khoản" as UC_Account
+  usecase "Quản lý phòng" as UC_Room
+  usecase "Quản lý loại phòng và giá" as UC_RoomCategory
+  usecase "Quản lý dịch vụ khách sạn" as UC_Service
+  usecase "Đặt phòng" as UC_Reservation
+  usecase "Hủy đặt phòng" as UC_Cancel
+  usecase "Nhận phòng" as UC_CheckIn
+  usecase "Ghi nhận dịch vụ phòng" as UC_RoomService
+  usecase "Quản lý bảo trì và dọn phòng" as UC_MaintenanceCleaning
+  usecase "Trả phòng" as UC_CheckOut
+  usecase "Thanh toán" as UC_Payment
+  usecase "Xem và in hóa đơn" as UC_Invoice
+  usecase "Xem và in phiếu xác nhận" as UC_Receipt
+  usecase "Xem báo cáo" as UC_Report
+  usecase "Cập nhật trạng thái phòng" as UC_StatusUpdate
+  usecase "Xác nhận chuyển khoản" as UC_Webhook
+}
+
+Staff --> UC_Login
+Staff --> UC_Logout
+Staff --> UC_Customer
+Staff --> UC_Room
+Staff --> UC_RoomCategory
+Staff --> UC_Service
+Staff --> UC_Reservation
+Staff --> UC_Cancel
+Staff --> UC_CheckIn
+Staff --> UC_RoomService
+Staff --> UC_MaintenanceCleaning
+Staff --> UC_CheckOut
+Staff --> UC_Payment
+Staff --> UC_Invoice
+Staff --> UC_Receipt
+
+Manager --> UC_Employee
+Manager --> UC_Account
+Manager --> UC_MaintenanceCleaning
+Manager --> UC_Report
+Housekeeper --> UC_MaintenanceCleaning
+Technician --> UC_MaintenanceCleaning
+Admin --> UC_Account
+Admin --> UC_Report
+Customer --> UC_Reservation
+Customer --> UC_CheckIn
+Customer --> UC_RoomService
+Customer --> UC_CheckOut
+Customer --> UC_Payment
+Customer --> UC_Invoice
+Customer --> UC_Receipt
+Gateway --> UC_Webhook
+Background --> UC_StatusUpdate
+
+UC_Reservation ..> UC_Customer : <<include>>
+UC_Reservation ..> UC_Receipt : <<include>>
+UC_CheckIn ..> UC_Receipt : <<include>>
+UC_CheckOut ..> UC_Payment : <<include>>
+UC_CheckOut ..> UC_Invoice : <<include>>
+UC_CheckOut ..> UC_MaintenanceCleaning : <<include>>
+UC_MaintenanceCleaning ..> UC_StatusUpdate : <<include>>
+UC_Webhook ..> UC_Payment : <<extend>>
+@enduml

@@ -1,0 +1,34 @@
+@startuml UseCase_Reservation
+left to right direction
+skinparam shadowing false
+title Sơ đồ ca sử dụng chi tiết - Đặt phòng
+
+actor "Khách hàng" as Customer
+actor "Nhân viên/Lễ tân" as Staff
+
+rectangle "Đặt phòng" {
+  usecase "Tiếp nhận yêu cầu đặt phòng" as UC_Request
+  usecase "Tìm hoặc tạo khách hàng" as UC_Customer
+  usecase "Tra cứu phòng trống" as UC_Availability
+  usecase "Xem bảng giá" as UC_Pricing
+  usecase "Tính hoặc nhập tiền cọc" as UC_Deposit
+  usecase "Tạo phiếu đặt phòng" as UC_Create
+  usecase "Tạo phiếu xác nhận đặt phòng" as UC_Receipt
+  usecase "Xem chi tiết đặt phòng" as UC_Details
+  usecase "Hủy đặt phòng" as UC_Cancel
+}
+
+Customer --> UC_Request
+Staff --> UC_Request
+Staff --> UC_Customer
+Staff --> UC_Create
+Staff --> UC_Details
+Staff --> UC_Cancel
+
+UC_Create ..> UC_Customer : <<include>>
+UC_Create ..> UC_Availability : <<include>>
+UC_Create ..> UC_Pricing : <<include>>
+UC_Create ..> UC_Deposit : <<include>>
+UC_Create ..> UC_Receipt : <<include>>
+UC_Cancel ..> UC_Details : <<include>>
+@enduml

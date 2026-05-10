@@ -1,0 +1,56 @@
+@startuml Sequence_RoomMaintenanceCleaning
+autonumber
+skinparam shadowing false
+title Sơ đồ tuần tự - Quản lý bảo trì và dọn phòng
+
+actor "Lễ tân/Quản lý" as Manager
+actor "Nhân viên xử lý" as Worker
+participant "Màn hình công việc phòng" as View
+participant "Bộ xử lý bảo trì và dọn phòng" as Controller
+participant "Bộ gọi thủ tục nghiệp vụ" as DbExt
+database "Ngữ cảnh cơ sở dữ liệu" as Db
+database "Cơ sở dữ liệu" as SQL
+
+Manager -> View: Mở danh sách công việc phòng
+View -> Controller: Yêu cầu danh sách công việc
+Controller -> Db: Truy vấn phòng, nhân viên và công việc hiện có
+Db --> Controller: Dữ liệu công việc phòng
+Controller --> View: Hiển thị danh sách công việc
+
+Manager -> View: Chọn phòng và tạo công việc
+View -> Controller: Gửi thông tin loại công việc, mô tả, mức ưu tiên
+Controller -> Controller: Kiểm tra dữ liệu công việc
+alt Dữ liệu không hợp lệ
+  Controller --> View: Trả lỗi kiểm tra dữ liệu
+else Dữ liệu hợp lệ
+  Controller -> DbExt: Gọi tạo công việc phòng
+  DbExt -> SQL: Chạy thủ tục tạo công việc phòng
+  SQL --> DbExt: Kết quả tạo công việc
+  DbExt --> Controller: Trả mã công việc
+  Controller -> DbExt: Gọi cập nhật trạng thái phòng
+  DbExt -> SQL: Chuyển phòng sang cần dọn hoặc bảo trì
+  SQL --> DbExt: Kết quả cập nhật trạng thái phòng
+  Controller --> View: Hiển thị công việc mới
+end
+
+Manager -> View: Phân công nhân viên xử lý
+View -> Controller: Gửi nhân viên được phân công
+Controller -> DbExt: Gọi phân công công việc
+DbExt -> SQL: Cập nhật nhân viên phụ trách
+SQL --> DbExt: Kết quả phân công
+Controller --> View: Cập nhật trạng thái đã phân công
+
+Worker -> View: Nhận và cập nhật tiến độ
+View -> Controller: Gửi trạng thái đang xử lý
+Controller -> DbExt: Gọi cập nhật trạng thái công việc
+DbExt -> SQL: Lưu trạng thái và lịch sử xử lý
+SQL --> DbExt: Kết quả cập nhật
+Controller --> View: Hiển thị trạng thái mới
+
+Worker -> View: Xác nhận hoàn tất
+View -> Controller: Gửi yêu cầu hoàn tất công việc
+Controller -> DbExt: Gọi hoàn tất công việc
+DbExt -> SQL: Cập nhật công việc và trạng thái phòng
+SQL --> DbExt: Kết quả hoàn tất
+Controller --> View: Hiển thị phòng sẵn sàng hoặc cần dọn bổ sung
+@enduml

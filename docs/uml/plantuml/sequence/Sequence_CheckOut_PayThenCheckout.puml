@@ -1,0 +1,41 @@
+@startuml Sequence_CheckOut_PayThenCheckout
+autonumber
+skinparam shadowing false
+title Sơ đồ tuần tự - Thanh toán trước, trả phòng sau
+
+actor "Nhân viên" as Staff
+participant "Màn hình trả phòng" as View
+participant "Bộ xử lý trả phòng" as Controller
+participant "Bộ gọi thủ tục nghiệp vụ" as DbExt
+database "Cơ sở dữ liệu" as SQL
+
+Staff -> View: Mở chi tiết trả phòng
+View -> Controller: Yêu cầu chi tiết chi phí
+Controller --> View: Hiển thị tổng tiền cần thanh toán
+
+Staff -> View: Chọn thanh toán trước
+View -> Controller: Gửi yêu cầu thanh toán trước
+Controller -> DbExt: Gọi xử lý tạo hóa đơn thanh toán trước
+DbExt -> SQL: Chạy thủ tục tạo hóa đơn thanh toán trước
+SQL --> DbExt: Kết quả thanh toán trước
+alt Thanh toán trước thất bại
+  DbExt --> Controller: Thông báo lỗi
+  Controller --> View: Hiển thị lỗi
+else Thanh toán trước thành công
+  DbExt --> Controller: Hóa đơn đã thanh toán
+  Controller --> View: Chuyển đến hóa đơn hoặc phiếu xác nhận
+end
+
+... Sau đó khách trả phòng thực tế ...
+
+Staff -> View: Chọn trả phòng thực tế
+View -> Controller: Gửi yêu cầu trả phòng thực tế
+Controller -> DbExt: Gọi xử lý trả phòng sau thanh toán trước
+DbExt -> SQL: Chạy thủ tục trả phòng sau thanh toán trước
+SQL --> DbExt: Kết quả trả phòng thực tế
+alt Trả phòng thực tế thành công
+  Controller --> View: Chuyển đến phiếu trả phòng
+else Trạng thái không hợp lệ
+  Controller --> View: Hiển thị lỗi
+end
+@enduml

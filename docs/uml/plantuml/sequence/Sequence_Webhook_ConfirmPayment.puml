@@ -1,0 +1,32 @@
+@startuml Sequence_Webhook_ConfirmPayment
+autonumber
+skinparam shadowing false
+title Sơ đồ tuần tự - Cổng thanh toán xác nhận chuyển khoản
+
+actor "Cổng thanh toán/Ngân hàng" as Gateway
+participant "Bộ xử lý trả phòng" as Controller
+participant "Bộ gọi thủ tục nghiệp vụ" as DbExt
+database "Ngữ cảnh cơ sở dữ liệu" as Db
+database "Cơ sở dữ liệu" as SQL
+
+Gateway -> Controller: Gửi thông tin xác nhận chuyển khoản
+Controller -> Controller: Kiểm tra dữ liệu gửi đến
+alt Dữ liệu không hợp lệ
+  Controller --> Gateway: Từ chối yêu cầu
+else Dữ liệu hợp lệ
+  Controller -> Db: Tìm hóa đơn và thông tin thanh toán
+  Db --> Controller: Dữ liệu hóa đơn
+  alt Không tìm thấy hóa đơn hoặc đã xử lý
+    Controller --> Gateway: Trả kết quả bỏ qua hoặc lỗi
+  else Có thể xác nhận
+    Controller -> DbExt: Gọi xử lý xác nhận thanh toán chuyển khoản
+    DbExt -> SQL: Chạy thủ tục xác nhận thanh toán
+    SQL --> DbExt: Kết quả xác nhận thanh toán
+    alt Thành công
+      Controller --> Gateway: Trả kết quả thành công
+    else Thất bại
+      Controller --> Gateway: Trả kết quả lỗi
+    end
+  end
+end
+@enduml

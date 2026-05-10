@@ -1,0 +1,72 @@
+@startuml Class_RoomMaintenanceCleaning
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+title Class đề xuất - Room Maintenance and Cleaning
+
+class Room {
+  +RoomID
+  +RoomNumber
+  +RoomStatus
+  +RoomCategoryID
+  +IsActivate
+}
+
+class Employee {
+  +EmployeeID
+  +FullName
+  +Position
+  +IsActivate
+}
+
+class RoomTask <<planned>> {
+  +RoomTaskID
+  +RoomID
+  +TaskType
+  +Title
+  +Description
+  +AssignedEmployeeID
+  +Status
+  +Priority
+  +CreatedAt
+  +StartedAt
+  +CompletedAt
+  +CreatedBy
+}
+
+class RoomTaskHistory <<planned>> {
+  +RoomTaskHistoryID
+  +RoomTaskID
+  +OldStatus
+  +NewStatus
+  +Note
+  +ChangedBy
+  +ChangedAt
+}
+
+class RoomMaintenanceCleaningController <<planned>> {
+  +Index()
+  +CreateCleaningTask()
+  +CreateMaintenanceTask()
+  +AssignTask()
+  +UpdateTaskStatus()
+  +CompleteTask()
+  +History()
+}
+
+class DatabaseExtensions <<static>> {
+  +CreateRoomTaskSP()
+  +AssignRoomTaskSP()
+  +UpdateRoomTaskStatusSP()
+  +CompleteRoomTaskSP()
+}
+
+Room "1" -- "0..*" RoomTask
+Employee "1" -- "0..*" RoomTask : assigned to
+Employee "1" -- "0..*" RoomTaskHistory : changes
+RoomTask "1" -- "0..*" RoomTaskHistory
+RoomMaintenanceCleaningController ..> Room : updates status
+RoomMaintenanceCleaningController ..> RoomTask : manages
+RoomMaintenanceCleaningController ..> DatabaseExtensions : calls SP wrappers
+DatabaseExtensions ..> RoomTask : creates/updates
+DatabaseExtensions ..> RoomTaskHistory : records changes
+@enduml

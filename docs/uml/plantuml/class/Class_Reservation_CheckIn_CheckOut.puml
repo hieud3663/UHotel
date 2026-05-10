@@ -1,0 +1,92 @@
+@startuml Class_Reservation_CheckIn_CheckOut
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+title Class chi tiết - Reservation, Check-in, Check-out
+
+class Customer {
+  +CustomerID
+  +FullName
+  +PhoneNumber
+  +IdentityNumber
+}
+
+class Employee {
+  +EmployeeID
+  +FullName
+  +Position
+}
+
+class RoomCategory {
+  +RoomCategoryID
+  +RoomCategoryName
+  +Capacity
+}
+
+class Room {
+  +RoomID
+  +RoomName
+  +RoomStatus
+}
+
+class Pricing {
+  +PricingID
+  +PriceUnit
+  +UnitPrice
+}
+
+class ReservationForm {
+  +ReservationFormID
+  +CheckInDate
+  +CheckOutDate
+  +PriceUnit
+  +UnitPrice
+  +RoomBookingDeposit
+  +IsActivate
+}
+
+class HistoryCheckin {
+  +HistoryCheckinID
+  +CheckInTime
+  +EmployeeID
+}
+
+class HistoryCheckOut {
+  +HistoryCheckOutID
+  +CheckOutTime
+  +EmployeeID
+}
+
+class Invoice {
+  +InvoiceID
+  +TotalDue
+  +NetDue
+  +TotalAmount
+  +IsPaid
+  +PaymentMethod
+  +CheckoutType
+}
+
+class ConfirmationReceipt {
+  +ConfirmationReceiptID
+  +ReceiptType
+  +CreatedDate
+}
+
+class RoomUsageService {
+  +RoomUsageServiceID
+  +Quantity
+  +TotalPrice
+}
+
+Customer "1" -- "0..*" ReservationForm
+Employee "1" -- "0..*" ReservationForm : creates
+RoomCategory "1" -- "0..*" Room
+RoomCategory "1" -- "0..*" Pricing
+Room "1" -- "0..*" ReservationForm
+ReservationForm "1" -- "0..1" HistoryCheckin
+ReservationForm "1" -- "0..1" HistoryCheckOut
+ReservationForm "1" -- "0..*" RoomUsageService
+ReservationForm "1" -- "0..*" Invoice
+ReservationForm "1" -- "0..*" ConfirmationReceipt
+Invoice "0..1" -- "0..*" ConfirmationReceipt
+@enduml

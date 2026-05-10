@@ -1,0 +1,35 @@
+@startuml Activity_CheckOut_CheckoutThenPay
+skinparam shadowing false
+title Sơ đồ hoạt động - Trả phòng trước, thanh toán sau
+
+start
+:Nhân viên mở danh sách trả phòng;
+:Chọn phiếu đang lưu trú;
+:Tải chi tiết chi phí dự kiến;
+:Hiển thị tiền phòng, dịch vụ, thuế, cọc và tổng phải trả;
+if (Cần chuyển thuê giờ sang thuê ngày?) then (Có)
+  :Gọi chức năng chuyển sang thuê ngày;
+  :Cơ sở dữ liệu cập nhật đơn vị giá;
+  :Tính lại chi phí;
+endif
+:Nhân viên chọn trả phòng trước, thanh toán sau;
+:Gọi thủ tục tạo hóa đơn và trả phòng;
+if (Tạo hóa đơn và trả phòng thành công?) then (Có)
+  :Tạo lịch sử trả phòng;
+  :Cập nhật phòng sang còn trống;
+  :Tạo hóa đơn chờ xác nhận thanh toán;
+  :Mở màn hình thanh toán;
+  :Nhân viên nhập phương thức thanh toán;
+  :Gọi thủ tục xác nhận thanh toán;
+  if (Thanh toán thành công?) then (Có)
+    :Cập nhật hóa đơn thành đã thanh toán;
+    :Tạo phiếu xác nhận trả phòng nếu cần;
+    :In hóa đơn hoặc phiếu xác nhận;
+  else (Không)
+    :Giữ trạng thái chờ thanh toán và hiển thị lỗi;
+  endif
+else (Không)
+  :Hiển thị lỗi từ cơ sở dữ liệu;
+endif
+stop
+@enduml

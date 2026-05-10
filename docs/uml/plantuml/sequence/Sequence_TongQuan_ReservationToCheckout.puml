@@ -1,0 +1,105 @@
+@startuml Sequence_TongQuan_ReservationToCheckout
+autonumber
+skinparam shadowing false
+title Sơ đồ tuần tự tổng quát - Từ đặt phòng đến trả phòng
+
+actor "Nhân viên/Lễ tân" as Staff
+participant "Giao diện người dùng" as View
+participant "Bộ xử lý đăng nhập" as Auth
+participant "Bộ xử lý đặt phòng" as Reservation
+participant "Bộ xử lý nhận phòng" as CheckIn
+participant "Bộ xử lý dịch vụ phòng" as RoomService
+participant "Bộ xử lý trả phòng" as CheckOut
+participant "Bộ xử lý bảo trì và dọn phòng" as RoomOps
+participant "Bộ xử lý hóa đơn" as InvoiceCtrl
+participant "Bộ xử lý phiếu xác nhận" as ReceiptCtrl
+participant "Bộ gọi thủ tục nghiệp vụ" as DbExt
+database "Cơ sở dữ liệu và thủ tục nghiệp vụ" as SQL
+
+Staff -> View: Nhập tên đăng nhập và mật khẩu
+View -> Auth: Gửi yêu cầu đăng nhập
+Auth -> SQL: Tra cứu tài khoản và nhân viên
+SQL --> Auth: Trả thông tin tài khoản đang hoạt động
+Auth -> Auth: Xác minh mật khẩu và lưu phiên làm việc
+Auth --> View: Chuyển đến trang thống kê tổng quan
+
+Staff -> View: Tạo đặt phòng
+View -> Reservation: Gửi yêu cầu tạo đặt phòng
+Reservation -> DbExt: Gọi xử lý tạo đặt phòng
+DbExt -> SQL: Chạy thủ tục tạo đặt phòng
+SQL --> DbExt: Kết quả tạo đặt phòng
+Reservation -> DbExt: Gọi xử lý tạo phiếu xác nhận đặt phòng
+DbExt -> SQL: Chạy thủ tục tạo phiếu xác nhận
+Reservation --> View: Hiển thị chi tiết đặt phòng
+
+Staff -> View: Nhận phòng cho khách
+View -> CheckIn: Gửi yêu cầu nhận phòng
+CheckIn -> DbExt: Gọi xử lý nhận phòng
+DbExt -> SQL: Chạy thủ tục nhận phòng
+SQL --> DbExt: Kết quả nhận phòng
+CheckIn -> DbExt: Gọi xử lý tạo phiếu xác nhận nhận phòng
+DbExt -> SQL: Chạy thủ tục tạo phiếu xác nhận
+CheckIn --> View: Hiển thị danh sách đang lưu trú
+
+Staff -> View: Thêm dịch vụ phòng
+View -> RoomService: Gửi yêu cầu thêm hoặc cập nhật dịch vụ
+RoomService -> DbExt: Gọi xử lý ghi nhận dịch vụ phòng
+DbExt -> SQL: Chạy thủ tục ghi nhận dịch vụ phòng
+SQL --> DbExt: Kết quả ghi nhận dịch vụ
+RoomService --> View: Cập nhật danh sách dịch vụ
+
+opt Phát sinh yêu cầu bảo trì trong thời gian lưu trú
+  Staff -> View: Tạo yêu cầu bảo trì phòng
+  View -> RoomOps: Gửi mô tả sự cố và mức độ ưu tiên
+  RoomOps -> DbExt: Gọi tạo công việc bảo trì
+  DbExt -> SQL: Lưu công việc và cập nhật trạng thái phòng
+  SQL --> DbExt: Kết quả tạo công việc
+  RoomOps --> View: Hiển thị công việc bảo trì
+end
+
+Staff -> View: Xem chi tiết trả phòng
+View -> CheckOut: Yêu cầu xem chi phí trả phòng
+CheckOut -> SQL: Truy vấn phiếu đặt phòng, phòng, dịch vụ và hóa đơn
+SQL --> CheckOut: Trả dữ liệu chi phí
+CheckOut --> View: Hiển thị tổng chi phí
+
+alt Trả phòng trước, thanh toán sau
+  Staff -> View: Chọn trả phòng trước
+  View -> CheckOut: Gửi yêu cầu trả phòng trước
+  CheckOut -> DbExt: Gọi xử lý tạo hóa đơn trả phòng trước
+  DbExt -> SQL: Chạy thủ tục tạo hóa đơn trả phòng trước
+  SQL --> DbExt: Kết quả hóa đơn
+  CheckOut --> View: Mở màn hình thanh toán
+  Staff -> View: Xác nhận thanh toán
+  View -> CheckOut: Gửi yêu cầu xác nhận thanh toán
+  CheckOut -> DbExt: Gọi xử lý xác nhận thanh toán
+  DbExt -> SQL: Chạy thủ tục xác nhận thanh toán
+else Thanh toán trước, trả phòng sau
+  Staff -> View: Chọn thanh toán trước
+  View -> CheckOut: Gửi yêu cầu thanh toán trước
+  CheckOut -> DbExt: Gọi xử lý tạo hóa đơn thanh toán trước
+  DbExt -> SQL: Chạy thủ tục tạo hóa đơn thanh toán trước
+  Staff -> View: Thực hiện trả phòng thực tế
+  View -> CheckOut: Gửi yêu cầu trả phòng sau thanh toán trước
+  CheckOut -> DbExt: Gọi xử lý trả phòng thực tế
+  DbExt -> SQL: Chạy thủ tục trả phòng sau thanh toán trước
+end
+
+CheckOut -> RoomOps: Yêu cầu tạo công việc dọn phòng sau trả phòng
+RoomOps -> DbExt: Gọi tạo công việc dọn phòng
+DbExt -> SQL: Lưu công việc dọn phòng và cập nhật trạng thái phòng
+SQL --> DbExt: Kết quả tạo công việc
+RoomOps --> View: Hiển thị phòng cần dọn
+
+Staff -> View: Xem hoặc in hóa đơn
+View -> InvoiceCtrl: Yêu cầu chi tiết hóa đơn
+InvoiceCtrl -> SQL: Truy vấn hóa đơn
+SQL --> InvoiceCtrl: Trả dữ liệu hóa đơn
+InvoiceCtrl --> View: Hiển thị hóa đơn có thể in
+
+Staff -> View: Xem hoặc in phiếu xác nhận
+View -> ReceiptCtrl: Yêu cầu phiếu đặt, nhận hoặc trả phòng
+ReceiptCtrl -> SQL: Truy vấn phiếu xác nhận
+SQL --> ReceiptCtrl: Trả dữ liệu phiếu
+ReceiptCtrl --> View: Hiển thị phiếu có thể in
+@enduml

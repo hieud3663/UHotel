@@ -1,0 +1,41 @@
+@startuml Activity_Reservation_CreateCancel
+skinparam shadowing false
+title Sơ đồ hoạt động - Tạo và hủy đặt phòng
+
+start
+:Nhân viên mở màn hình đặt phòng;
+:Chọn hoặc tạo nhanh khách hàng;
+:Nhập ngày nhận phòng và ngày trả phòng;
+:Chọn loại phòng;
+:Tra cứu phòng trống;
+if (Có phòng trống?) then (Có)
+  :Chọn phòng;
+  :Chọn đơn vị giá theo giờ hoặc theo ngày;
+  :Lấy đơn giá;
+  :Tính hoặc nhập tiền cọc;
+  :Gửi biểu mẫu tạo đặt phòng;
+  :Bộ xử lý đặt phòng kiểm tra dữ liệu;
+  :Gọi thủ tục tạo đặt phòng trong cơ sở dữ liệu;
+  if (Tạo đặt phòng thành công?) then (Có)
+    :Gọi thủ tục tạo phiếu xác nhận;
+    :Tạo phiếu xác nhận đặt phòng;
+    :Chuyển tới chi tiết đặt phòng;
+  else (Không)
+    :Hiển thị lỗi từ cơ sở dữ liệu;
+  endif
+else (Không)
+  :Thông báo không có phòng phù hợp;
+endif
+
+if (Người dùng yêu cầu hủy đặt phòng?) then (Có)
+  :Mở chi tiết đặt phòng;
+  if (Phiếu đặt phòng chưa nhận phòng và còn hiệu lực?) then (Có)
+    :Cập nhật phiếu đặt phòng thành đã hủy;
+    :Cập nhật trạng thái phòng nếu cần;
+    :Thông báo hủy thành công;
+  else (Không)
+    :Thông báo không thể hủy;
+  endif
+endif
+stop
+@enduml

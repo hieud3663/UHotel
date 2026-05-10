@@ -1,0 +1,93 @@
+@startuml Activity_TongQuan_QuyTrinhKhachSan
+' Quy trình tổng quát hệ thống quản lý khách sạn
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #F8FAFC
+  BorderColor #334155
+  FontColor #0F172A
+}
+
+title Sơ đồ hoạt động tổng quát - Quy trình quản lý khách sạn
+
+start
+:Người dùng mở hệ thống;
+:Nhập thông tin đăng nhập;
+if (Tài khoản hợp lệ và đang hoạt động?) then (Có)
+  :Lưu phiên làm việc của người dùng;
+  :Mở trang thống kê tổng quan;
+else (Không)
+  :Hiển thị lỗi đăng nhập;
+  stop
+endif
+
+partition "Chuẩn bị dữ liệu nền" {
+  :Quản lý khách hàng;
+  :Quản lý nhân viên và tài khoản;
+  :Quản lý loại phòng, giá và phòng;
+  :Quản lý dịch vụ khách sạn;
+}
+
+partition "Vòng đời lưu trú" {
+  :Tiếp nhận yêu cầu đặt phòng;
+  :Tra cứu phòng trống và bảng giá;
+  if (Có phòng phù hợp?) then (Có)
+    :Tạo phiếu đặt phòng;
+    :Thu hoặc ghi nhận tiền cọc;
+    :Tạo phiếu xác nhận đặt phòng;
+  else (Không)
+    :Thông báo không có phòng phù hợp;
+    stop
+  endif
+
+  :Hệ thống tự động cập nhật phòng sắp đến hạn sang đã đặt;
+  :Khách đến nhận phòng;
+  if (Phiếu đặt phòng hợp lệ?) then (Có)
+    :Thực hiện nhận phòng;
+    :Cập nhật phòng sang đang sử dụng;
+    :Tạo phiếu xác nhận nhận phòng;
+  else (Không)
+    :Từ chối nhận phòng hoặc yêu cầu xử lý lại;
+    stop
+  endif
+
+  while (Khách đang lưu trú?) is (Có)
+    :Ghi nhận, cập nhật hoặc xóa dịch vụ phòng;
+    if (Phát sinh sự cố phòng?) then (Có)
+      :Tạo yêu cầu bảo trì phòng;
+      :Phân công nhân viên kỹ thuật xử lý;
+      :Cập nhật trạng thái phòng theo kết quả bảo trì;
+    endif
+  endwhile (Không)
+
+  :Xem chi tiết trả phòng và chi phí;
+  :Tính tiền phòng, dịch vụ, thuế, tiền cọc và số tiền còn lại;
+  if (Cần đổi thuê giờ sang thuê ngày?) then (Có)
+    :Chuyển đơn vị giá thuê;
+  endif
+
+  if (Chọn cách xử lý thanh toán?) then (Trả phòng rồi thanh toán)
+    :Tạo hóa đơn trả phòng rồi thanh toán;
+    :Xác nhận thanh toán;
+  else (Thanh toán trước rồi trả phòng)
+    :Tạo hóa đơn thanh toán trước;
+    :Xác nhận thanh toán;
+    :Thực hiện trả phòng thực tế sau thanh toán;
+  endif
+
+  :Tạo lịch sử trả phòng;
+  :Tạo yêu cầu dọn phòng sau trả phòng;
+  :Phân công nhân viên buồng phòng;
+  :Hoàn tất dọn phòng và cập nhật trạng thái phòng;
+  :In hóa đơn hoặc phiếu xác nhận trả phòng;
+}
+
+partition "Quản trị và báo cáo" {
+  :Xem báo cáo doanh thu;
+  :Xem công suất phòng;
+  :Xem tình trạng bảo trì và dọn phòng;
+  :Xem hiệu suất nhân viên;
+}
+
+:Đăng xuất;
+stop
+@enduml

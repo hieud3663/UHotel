@@ -1,0 +1,46 @@
+@startuml Sequence_RoomService_AddUpdateDelete
+autonumber
+skinparam shadowing false
+title Sơ đồ tuần tự - Thêm, cập nhật, xóa dịch vụ phòng
+
+actor "Nhân viên" as Staff
+participant "Màn hình dịch vụ phòng" as View
+participant "Bộ xử lý dịch vụ phòng" as Controller
+participant "Bộ gọi thủ tục nghiệp vụ" as DbExt
+database "Ngữ cảnh cơ sở dữ liệu" as Db
+database "Cơ sở dữ liệu" as SQL
+
+Staff -> View: Mở dịch vụ của phiếu lưu trú
+View -> Controller: Yêu cầu danh sách dịch vụ đã dùng
+Controller -> Db: Truy vấn phiếu, dịch vụ đã dùng và dịch vụ khách sạn
+Db --> Controller: Dữ liệu dịch vụ
+Controller --> View: Hiển thị dịch vụ phòng
+
+Staff -> View: Chọn danh mục dịch vụ
+View -> Controller: Yêu cầu dịch vụ theo danh mục
+Controller -> Db: Truy vấn dịch vụ đang hoạt động
+Db --> Controller: Danh sách dịch vụ
+Controller --> View: Trả danh sách dịch vụ
+
+Staff -> View: Chọn dịch vụ và số lượng
+View -> Controller: Gửi yêu cầu thêm hoặc cập nhật
+Controller -> Controller: Kiểm tra phiếu, dịch vụ và số lượng
+alt Dữ liệu không hợp lệ
+  Controller --> View: Trả lỗi kiểm tra dữ liệu
+else Dữ liệu hợp lệ
+  Controller -> DbExt: Gọi xử lý ghi nhận dịch vụ phòng
+  DbExt -> SQL: Chạy thủ tục ghi nhận dịch vụ phòng
+  SQL --> DbExt: Kết quả ghi nhận dịch vụ
+  DbExt --> Controller: Trả kết quả
+  Controller --> View: Cập nhật danh sách dịch vụ
+end
+
+opt Xóa dịch vụ
+  Staff -> View: Chọn xóa dịch vụ
+  View -> Controller: Gửi yêu cầu xóa dịch vụ
+  Controller -> DbExt: Gọi xử lý xóa dịch vụ phòng
+  DbExt -> SQL: Chạy thủ tục xóa dịch vụ phòng
+  SQL --> DbExt: Kết quả xóa dịch vụ
+  Controller --> View: Cập nhật danh sách dịch vụ
+end
+@enduml

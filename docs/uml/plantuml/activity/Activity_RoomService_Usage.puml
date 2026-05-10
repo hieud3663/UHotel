@@ -1,0 +1,36 @@
+@startuml Activity_RoomService_Usage
+skinparam shadowing false
+title Sơ đồ hoạt động - Quản lý dịch vụ phòng
+
+start
+:Nhân viên mở màn hình dịch vụ phòng;
+:Chọn phiếu đang lưu trú;
+:Tải danh sách dịch vụ đã sử dụng;
+:Chọn danh mục dịch vụ;
+:Chọn dịch vụ và số lượng;
+if (Dữ liệu hợp lệ?) then (Có)
+  :Gửi yêu cầu thêm hoặc cập nhật dịch vụ;
+  :Gọi thủ tục ghi nhận dịch vụ phòng;
+  if (Dịch vụ đã tồn tại trong phiếu lưu trú?) then (Có)
+    :Cộng dồn hoặc cập nhật số lượng;
+  else (Không)
+    :Tạo dòng dịch vụ sử dụng mới;
+  endif
+  :Tính thành tiền dịch vụ;
+  :Cập nhật danh sách dịch vụ;
+else (Không)
+  :Hiển thị lỗi kiểm tra dữ liệu;
+endif
+
+if (Nhân viên xóa dịch vụ?) then (Có)
+  :Chọn dòng dịch vụ cần xóa;
+  :Gửi yêu cầu xóa dịch vụ;
+  :Gọi thủ tục xóa dịch vụ phòng;
+  if (Xóa thành công?) then (Có)
+    :Cập nhật danh sách dịch vụ;
+  else (Không)
+    :Hiển thị lỗi;
+  endif
+endif
+stop
+@enduml

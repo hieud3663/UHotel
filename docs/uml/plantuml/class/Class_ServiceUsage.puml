@@ -1,0 +1,78 @@
+@startuml Class_ServiceUsage
+left to right direction
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+title Class chi tiết - Dịch vụ phòng
+
+class ServiceCategory {
+  +string ServiceCategoryID
+  +string ServiceCategoryName
+  +string IsActivate
+  --
+  +ICollection<HotelService> HotelServices
+}
+
+class HotelService {
+  +string HotelServiceId
+  +string ServiceName
+  +string Description
+  +decimal ServicePrice
+  +string ServiceCategoryID
+  +string IsActivate
+  --
+  +ServiceCategory ServiceCategory
+  +ICollection<RoomUsageService> RoomUsageServices
+}
+
+class ReservationForm {
+  +string ReservationFormID
+  +DateTime CheckInDate
+  +DateTime CheckOutDate
+  +string IsActivate
+}
+
+class RoomUsageService {
+  +string RoomUsageServiceId
+  +int Quantity
+  +decimal UnitPrice
+  +decimal TotalPrice
+  +DateTime DateAdded
+  +string HotelServiceId
+  +string ReservationFormID
+  +string EmployeeID
+  --
+  +HotelService HotelService
+  +ReservationForm ReservationForm
+  +Employee Employee
+}
+
+class Employee {
+  +string EmployeeID
+  +string FullName
+  +string Position
+}
+
+class RoomServiceController {
+  +Index(reservationFormID)
+  +AddService(reservationFormID, hotelServiceId, quantity)
+  +UpdateService(id, quantity, reservationFormID)
+  +DeleteService(id, reservationFormID)
+  +GetServicePrice(serviceId)
+  +GetServicesByCategory(categoryId)
+}
+
+class DatabaseExtensions <<static>> {
+  +AddRoomServiceSP(reservationFormID, hotelServiceId, quantity, employeeID)
+  +DeleteRoomServiceSP(roomUsageServiceId)
+}
+
+ServiceCategory "1" -- "0..*" HotelService : categorizes
+HotelService "1" -- "0..*" RoomUsageService : used as
+ReservationForm "1" -- "0..*" RoomUsageService : contains
+Employee "1" -- "0..*" RoomUsageService : adds
+RoomServiceController ..> ReservationForm : loads
+RoomServiceController ..> HotelService : reads
+RoomServiceController ..> RoomUsageService : updates directly
+RoomServiceController ..> DatabaseExtensions : calls SP wrappers
+DatabaseExtensions ..> RoomUsageService : creates / deletes
+@enduml

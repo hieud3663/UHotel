@@ -1,0 +1,31 @@
+@startuml UseCase_CheckIn
+left to right direction
+skinparam shadowing false
+title Sơ đồ ca sử dụng chi tiết - Nhận phòng
+
+actor "Khách hàng" as Customer
+actor "Nhân viên/Lễ tân" as Staff
+actor "Dịch vụ nền" as Background
+
+rectangle "Nhận phòng" {
+  usecase "Xem danh sách chờ nhận phòng" as UC_List
+  usecase "Kiểm tra phiếu đặt phòng hợp lệ" as UC_Validate
+  usecase "Nhận phòng" as UC_CheckIn
+  usecase "Tạo lịch sử nhận phòng" as UC_History
+  usecase "Cập nhật phòng sang đang sử dụng" as UC_RoomStatus
+  usecase "Tạo phiếu xác nhận nhận phòng" as UC_Receipt
+  usecase "Xem danh sách đang lưu trú" as UC_CheckedInList
+  usecase "Cập nhật phòng sắp đến hạn sang đã đặt" as UC_AutoReserved
+}
+
+Customer --> UC_CheckIn
+Staff --> UC_List
+Staff --> UC_CheckIn
+Staff --> UC_CheckedInList
+Background --> UC_AutoReserved
+
+UC_CheckIn ..> UC_Validate : <<include>>
+UC_CheckIn ..> UC_History : <<include>>
+UC_CheckIn ..> UC_RoomStatus : <<include>>
+UC_CheckIn ..> UC_Receipt : <<include>>
+@enduml

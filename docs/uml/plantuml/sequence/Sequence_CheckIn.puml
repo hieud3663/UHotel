@@ -1,0 +1,39 @@
+@startuml Sequence_CheckIn
+autonumber
+skinparam shadowing false
+title Sơ đồ tuần tự - Nhận phòng
+
+actor "Nhân viên" as Staff
+participant "Màn hình nhận phòng" as View
+participant "Bộ xử lý nhận phòng" as Controller
+participant "Bộ gọi thủ tục nghiệp vụ" as DbExt
+database "Ngữ cảnh cơ sở dữ liệu" as Db
+database "Cơ sở dữ liệu" as SQL
+
+Staff -> View: Mở danh sách chờ nhận phòng
+View -> Controller: Yêu cầu danh sách chờ
+Controller -> Db: Truy vấn phiếu đặt phòng đủ điều kiện nhận phòng
+Db --> Controller: Danh sách phiếu đặt phòng
+Controller --> View: Hiển thị danh sách chờ
+
+Staff -> View: Chọn nhận phòng
+View -> Controller: Gửi yêu cầu nhận phòng
+Controller -> Controller: Kiểm tra đăng nhập
+Controller -> Db: Tải phiếu đặt phòng và phòng
+Db --> Controller: Dữ liệu phiếu đặt phòng
+alt Không tìm thấy hoặc trạng thái không hợp lệ
+  Controller --> View: Hiển thị lỗi
+else Hợp lệ
+  Controller -> DbExt: Gọi xử lý nhận phòng
+  DbExt -> SQL: Chạy thủ tục nhận phòng
+  SQL --> DbExt: Kết quả nhận phòng
+  alt Thủ tục trả lỗi
+    DbExt --> Controller: Kết quả lỗi
+    Controller --> View: Hiển thị lỗi
+  else Thành công
+    Controller -> DbExt: Gọi xử lý tạo phiếu xác nhận nhận phòng
+    DbExt -> SQL: Chạy thủ tục tạo phiếu xác nhận
+    Controller --> View: Chuyển đến danh sách đang lưu trú
+  end
+end
+@enduml

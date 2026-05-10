@@ -1,0 +1,16 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "Set-Content": true,
+        "/^powershell\\.exe -NoProfile -ExecutionPolicy Bypass -File \\.\\\\tools\\\\render-puml\\.ps1 -Format png; \"After render:\"; Get-ChildItem docs\\\\uml\\\\images -Recurse -Filter \\*\\.png \\| Sort-Object LastWriteTime -Descending \\| Select-Object -First 8 FullName, Length, LastWriteTime \\| Format-List$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "&": true,
+        "ForEach-Object": true,
+        "/^powershell\\.exe -NoProfile -ExecutionPolicy Bypass -File \\.\\\\tools\\\\render-puml\\.ps1 -Format png$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "Resolve-Path": true
+    }
+}

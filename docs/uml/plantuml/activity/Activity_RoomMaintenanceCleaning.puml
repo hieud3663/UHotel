@@ -1,0 +1,44 @@
+@startuml Activity_RoomMaintenanceCleaning
+skinparam shadowing false
+title Sơ đồ hoạt động - Quản lý bảo trì và dọn phòng
+
+start
+:Nhân viên mở màn hình quản lý công việc phòng;
+:Chọn phòng cần xử lý;
+if (Loại công việc?) then (Dọn phòng)
+  :Tạo yêu cầu dọn phòng;
+  :Chuyển trạng thái phòng sang cần dọn;
+  :Phân công nhân viên buồng phòng;
+  :Nhân viên nhận công việc;
+  :Cập nhật trạng thái đang dọn;
+  :Thực hiện dọn phòng;
+  if (Dọn phòng đạt yêu cầu?) then (Có)
+    :Xác nhận hoàn tất dọn phòng;
+    :Chuyển trạng thái phòng sang sẵn sàng;
+  else (Không)
+    :Ghi nhận ghi chú cần xử lý lại;
+    :Tiếp tục dọn phòng;
+  endif
+else (Bảo trì)
+  :Tạo yêu cầu bảo trì;
+  :Ghi nhận mô tả sự cố và mức độ ưu tiên;
+  :Chuyển trạng thái phòng sang bảo trì hoặc không khả dụng;
+  :Phân công nhân viên kỹ thuật;
+  :Nhân viên kỹ thuật nhận công việc;
+  :Cập nhật trạng thái đang bảo trì;
+  :Thực hiện sửa chữa;
+  if (Sự cố đã được xử lý?) then (Có)
+    :Xác nhận hoàn tất bảo trì;
+    if (Phòng cần dọn sau bảo trì?) then (Có)
+      :Tạo yêu cầu dọn phòng bổ sung;
+      :Chuyển trạng thái phòng sang cần dọn;
+    else (Không)
+      :Chuyển trạng thái phòng sang sẵn sàng;
+    endif
+  else (Không)
+    :Cập nhật ghi chú và tiếp tục theo dõi;
+  endif
+endif
+:Lưu lịch sử xử lý công việc phòng;
+stop
+@enduml

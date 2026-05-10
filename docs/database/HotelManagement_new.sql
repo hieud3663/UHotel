@@ -403,7 +403,7 @@ BEGIN
     -- Sử dụng CASE để xử lý từng bảng cụ thể, lấy ID lớn nhất
     SELECT @maxID = CASE
         WHEN @tableName = 'Employee' THEN 
-            ISNULL((SELECT MAX(CAST(SUBSTRING(employeeID, LEN(@prefix) + 1, @padLength) AS INT)) 
+            ISNULL((SELECT MAX(CAST(SUBSTRING(employeeID, LEN(@prefix) + 1, @padLength) AS INT))    
                     FROM Employee WHERE employeeID LIKE @prefix + '%'), 0)
         WHEN @tableName = 'Customer' THEN 
             ISNULL((SELECT MAX(CAST(SUBSTRING(customerID, LEN(@prefix) + 1, @padLength) AS INT)) 

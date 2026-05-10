@@ -1,0 +1,179 @@
+@startuml Class_TongQuan_DomainModel
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+title Class tổng quan - Domain Model HotelManagement
+
+package "Tài khoản - Nhân sự" {
+  class User {
+    +string UserID
+    +string Username
+    +string PasswordHash
+    +string Role
+    +string EmployeeID
+    +string IsActivate
+  }
+
+  class Employee {
+    +string EmployeeID
+    +string FullName
+    +string PhoneNumber
+    +string Email
+    +string Position
+    +string IsActivate
+  }
+}
+
+package "Khách hàng - Đặt phòng" {
+  class Customer {
+    +string CustomerID
+    +string FullName
+    +string PhoneNumber
+    +string Email
+    +string IdentityNumber
+    +string IsActivate
+  }
+
+  class ReservationForm {
+    +string ReservationFormID
+    +DateTime CheckInDate
+    +DateTime CheckOutDate
+    +string PriceUnit
+    +decimal UnitPrice
+    +double RoomBookingDeposit
+    +string IsActivate
+  }
+}
+
+package "Phòng - Giá" {
+  class RoomCategory {
+    +string RoomCategoryID
+    +string RoomCategoryName
+    +int NumberOfBeds
+    +int Capacity
+    +string IsActivate
+  }
+
+  class Room {
+    +string RoomID
+    +string RoomName
+    +string RoomStatus
+    +string RoomCategoryID
+    +string IsActivate
+  }
+
+  class Pricing {
+    +string PricingID
+    +string RoomCategoryID
+    +string PriceUnit
+    +decimal UnitPrice
+    +string IsActivate
+  }
+}
+
+package "Dịch vụ" {
+  class ServiceCategory {
+    +string ServiceCategoryID
+    +string ServiceCategoryName
+    +string IsActivate
+  }
+
+  class HotelService {
+    +string HotelServiceId
+    +string ServiceName
+    +decimal ServicePrice
+    +string ServiceCategoryID
+    +string IsActivate
+  }
+
+  class RoomUsageService {
+    +string RoomUsageServiceId
+    +string ReservationFormID
+    +string HotelServiceId
+    +int Quantity
+    +decimal UnitPrice
+    +decimal TotalPrice
+    +DateTime DateAdded
+  }
+}
+
+package "Lưu trú - Thanh toán - Phiếu" {
+  class HistoryCheckin {
+    +string HistoryCheckinID
+    +string ReservationFormID
+    +DateTime CheckInTime
+    +string EmployeeID
+  }
+
+  class HistoryCheckOut {
+    +string HistoryCheckOutID
+    +string ReservationFormID
+    +DateTime CheckOutTime
+    +string EmployeeID
+  }
+
+  class Invoice {
+    +string InvoiceID
+    +string ReservationFormID
+    +decimal TotalDue
+    +decimal NetDue
+    +decimal TotalAmount
+    +bool IsPaid
+    +string PaymentMethod
+    +string CheckoutType
+  }
+
+  class ConfirmationReceipt {
+    +string ConfirmationReceiptID
+    +string ReceiptType
+    +string ReservationFormID
+    +string InvoiceID
+    +DateTime CreatedDate
+  }
+
+  class RoomChangeHistory {
+    +string RoomChangeHistoryID
+    +string ReservationFormID
+    +string OldRoomID
+    +string NewRoomID
+    +DateTime ChangedAt
+  }
+}
+
+package "Vận hành phòng" {
+  class RoomTask <<planned>> {
+    +string RoomTaskID
+    +string RoomID
+    +string TaskType
+    +string Status
+    +string Priority
+    +string AssignedEmployeeID
+  }
+
+  class RoomTaskHistory <<planned>> {
+    +string RoomTaskHistoryID
+    +string RoomTaskID
+    +string OldStatus
+    +string NewStatus
+    +DateTime ChangedAt
+  }
+}
+
+Employee "1" -- "0..1" User : account
+Customer "1" -- "0..*" ReservationForm : makes
+Employee "1" -- "0..*" ReservationForm : creates
+Room "1" -- "0..*" ReservationForm : reserved for
+RoomCategory "1" -- "0..*" Room : contains
+RoomCategory "1" -- "0..*" Pricing : has prices
+ServiceCategory "1" -- "0..*" HotelService : categorizes
+ReservationForm "1" -- "0..1" HistoryCheckin : check-in
+ReservationForm "1" -- "0..1" HistoryCheckOut : check-out
+ReservationForm "1" -- "0..*" RoomUsageService : uses services
+HotelService "1" -- "0..*" RoomUsageService : charged as
+ReservationForm "1" -- "0..*" Invoice : billed by
+Invoice "0..1" -- "0..*" ConfirmationReceipt : referenced by
+ReservationForm "1" -- "0..*" ConfirmationReceipt : has receipts
+ReservationForm "1" -- "0..*" RoomChangeHistory : room changes
+Room "1" -- "0..*" RoomTask : has tasks
+Employee "1" -- "0..*" RoomTask : assigned tasks
+RoomTask "1" -- "0..*" RoomTaskHistory : status history
+@enduml

@@ -1,0 +1,107 @@
+@model HotelManagement.Models.PagedList<HotelManagement.Models.RoomTaskHistory>
+
+@{
+    ViewData["Title"] = "Lịch sử bảo trì và dọn phòng";
+}
+
+<div class="page-header fade-in-up">
+    <h1><i class="fas fa-history"></i> Lịch sử bảo trì và dọn phòng</h1>
+    <p>Theo dõi toàn bộ thay đổi trạng thái công việc vận hành phòng</p>
+</div>
+
+<div class="card-modern fade-in-up mb-4">
+    <div class="card-header-modern">
+        <i class="fas fa-filter me-2"></i>Bộ lọc lịch sử
+    </div>
+    <div class="card-body-modern">
+        <form asp-action="History" method="get" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label-modern">Phòng</label>
+                <input type="text" name="roomID" value="@ViewBag.RoomID" class="form-control form-control-modern" placeholder="Nhập mã phòng" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label-modern">Nhân viên</label>
+                <select name="employeeID" class="form-select form-control-modern" asp-items="ViewBag.Employees">
+                    <option value="">Tất cả</option>
+                </select>
+            </div>
+            <div class="col-md-4 d-flex align-items-end gap-2">
+                <button type="submit" class="btn btn-primary-modern">
+                    <i class="fas fa-search"></i> Lọc
+                </button>
+                <a asp-action="History" class="btn btn-secondary">
+                    <i class="fas fa-undo"></i> Đặt lại
+                </a>
+                <a asp-action="Index" class="btn btn-outline-secondary">
+                    <i class="fas fa-list"></i> Danh sách
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card-modern fade-in-up">
+    <div class="card-header-modern">
+        <i class="fas fa-clock-rotate-left me-2"></i>Nhật ký thay đổi
+    </div>
+    <div class="card-body-modern p-0">
+        <div class="table-responsive">
+            <table class="table table-modern mb-0">
+                <thead>
+                    <tr>
+                        <th>Thời điểm</th>
+                        <th>Mã công việc</th>
+                        <th>Phòng</th>
+                        <th>Trạng thái cũ</th>
+                        <th>Trạng thái mới</th>
+                        <th>Người thay đổi</th>
+                        <th>Ghi chú</th>
+                        <th class="text-end">Chi tiết</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Any())
+                    {
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-4">Chưa có lịch sử phù hợp</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var item in Model)
+                        {
+                            <tr>
+                                <td>@item.ChangedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td><strong class="text-primary">@item.RoomTaskID</strong></td>
+                                <td>@item.RoomTask?.RoomID</td>
+                                <td>@StatusDisplayHelper.RoomTaskStatusText(item.OldStatus)</td>
+                                <td>@StatusDisplayHelper.RoomTaskStatusText(item.NewStatus)</td>
+                                <td>@(item.ChangedByEmployee?.FullName ?? item.ChangedByEmployeeID)</td>
+                                <td>@item.Note</td>
+                                <td class="text-end">
+                                    <a asp-action="Details" asp-route-id="@item.RoomTaskID" class="btn btn-info-modern btn-sm">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@if (Model.TotalPages > 1)
+{
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            @for (var i = 1; i <= Model.TotalPages; i++)
+            {
+                <li class="page-item @(i == Model.CurrentPage ? "active" : "")">
+                    <a class="page-link" asp-action="History" asp-route-page="@i" asp-route-roomID="@ViewBag.RoomID" asp-route-employeeID="@ViewBag.EmployeeID">@i</a>
+                </li>
+            }
+        </ul>
+    </nav>
+}

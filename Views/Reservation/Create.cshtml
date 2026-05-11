@@ -45,6 +45,15 @@
         background: linear-gradient(135deg, #3498db 0%, #5dade2 100%);
     }
 
+    .room-card.unavailable,
+    .room-card.dirty,
+    .room-card.cleaning,
+    .room-card.maintenance,
+    .room-card.out-of-service,
+    .room-card.unknown {
+        background: linear-gradient(135deg, #7f8c8d 0%, #95a5a6 100%);
+    }
+
     .room-card.selected {
         border: 3px solid #2c3e50;
         box-shadow: 0 0 10px rgba(44, 62, 80, 0.5);
@@ -705,8 +714,44 @@
                             case 'ON_USE':
                                 statusClass = 'onuse';
                                 statusText = 'Đang sử dụng';
-                                statusIcon = '<i class="fas fa-calendar-check room-icon"></i>';
+                                statusIcon = '<i class="fas fa-user-check room-icon"></i>';
                                 onuseCount++;
+                                break;
+                            case 'UNAVAILABLE':
+                                statusClass = 'unavailable';
+                                statusText = 'Không khả dụng';
+                                statusIcon = '<i class="fas fa-ban room-icon"></i>';
+                                occupiedCount++;
+                                break;
+                            case 'DIRTY':
+                                statusClass = 'dirty';
+                                statusText = 'Cần dọn';
+                                statusIcon = '<i class="fas fa-broom room-icon"></i>';
+                                occupiedCount++;
+                                break;
+                            case 'CLEANING':
+                                statusClass = 'cleaning';
+                                statusText = 'Đang dọn';
+                                statusIcon = '<i class="fas fa-spray-can room-icon"></i>';
+                                occupiedCount++;
+                                break;
+                            case 'MAINTENANCE':
+                                statusClass = 'maintenance';
+                                statusText = 'Bảo trì';
+                                statusIcon = '<i class="fas fa-tools room-icon"></i>';
+                                occupiedCount++;
+                                break;
+                            case 'OUT_OF_SERVICE':
+                                statusClass = 'out-of-service';
+                                statusText = 'Ngừng sử dụng';
+                                statusIcon = '<i class="fas fa-door-closed room-icon"></i>';
+                                occupiedCount++;
+                                break;
+                            default:
+                                statusClass = 'unknown';
+                                statusText = 'Không xác định';
+                                statusIcon = '<i class="fas fa-question-circle room-icon"></i>';
+                                occupiedCount++;
                                 break;
                         }
 

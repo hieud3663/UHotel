@@ -1,0 +1,76 @@
+@model HotelManagement.Models.RoomTask
+
+@{
+    ViewData["Title"] = "Phân công công việc";
+}
+
+<div class="page-header fade-in-up">
+    <h1><i class="fas fa-user-plus"></i> Phân công công việc</h1>
+    <p>Phân công nhân viên xử lý công việc @Model.RoomTaskID</p>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card-modern fade-in-up mb-4">
+            <div class="card-header-modern">
+                <i class="fas fa-info-circle me-2"></i>Thông tin công việc
+            </div>
+            <div class="card-body-modern">
+                <table class="table table-borderless mb-0">
+                    <tr>
+                        <th width="35%">Mã công việc:</th>
+                        <td><strong class="text-primary">@Model.RoomTaskID</strong></td>
+                    </tr>
+                    <tr>
+                        <th>Phòng:</th>
+                        <td>@Model.RoomID</td>
+                    </tr>
+                    <tr>
+                        <th>Tiêu đề:</th>
+                        <td>@Model.Title</td>
+                    </tr>
+                    <tr>
+                        <th>Nhân viên hiện tại:</th>
+                        <td>@(Model.AssignedEmployee?.FullName ?? "Chưa phân công")</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="card-modern fade-in-up">
+            <div class="card-header-modern">
+                <i class="fas fa-user-check me-2"></i>Chọn nhân viên phụ trách
+            </div>
+            <div class="card-body-modern">
+                <form asp-action="Assign" method="post">
+                    <input type="hidden" name="id" value="@Model.RoomTaskID" />
+
+                    <div class="mb-4">
+                        <label class="form-label-modern">
+                            <i class="fas fa-user"></i> Nhân viên <span class="text-danger">*</span>
+                        </label>
+                        <select name="assignedEmployeeID" class="form-select form-control-modern" asp-items="ViewBag.Employees" required>
+                            <option value="">-- Chọn nhân viên --</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label-modern">
+                            <i class="fas fa-sticky-note"></i> Ghi chú phân công
+                        </label>
+                        <textarea name="note" rows="3" class="form-control form-control-modern" placeholder="Ghi chú yêu cầu xử lý nếu có..."></textarea>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-success-modern">
+                            <i class="fas fa-save"></i> Lưu phân công
+                        </button>
+                        <a asp-action="Details" asp-route-id="@Model.RoomTaskID" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Hủy
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

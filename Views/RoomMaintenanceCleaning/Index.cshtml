@@ -1,0 +1,219 @@
+@model HotelManagement.Models.PagedList<HotelManagement.Models.RoomTask>
+@using HotelManagement.Models
+@using Microsoft.AspNetCore.Html
+
+@{
+    ViewData["Title"] = "Bảo trì và dọn phòng";
+}
+
+<div class="page-header fade-in-up">
+    <h1>
+        <i class="fas fa-broom"></i>
+        Bảo trì và dọn phòng
+    </h1>
+    <p>Theo dõi, tạo và xử lý công việc vận hành phòng</p>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="stats-card fade-in-up">
+            <div class="stats-icon bg-warning"><i class="fas fa-clock"></i></div>
+            <div class="stats-content">
+                <h3>@Model.Count(t => t.Status == RoomTaskStatuses.Pending)</h3>
+                <p>Chờ xử lý</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stats-card fade-in-up" style="animation-delay: 0.05s">
+            <div class="stats-icon bg-info"><i class="fas fa-user-check"></i></div>
+            <div class="stats-content">
+                <h3>@Model.Count(t => t.Status == RoomTaskStatuses.Assigned)</h3>
+                <p>Đã phân công</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stats-card fade-in-up" style="animation-delay: 0.1s">
+            <div class="stats-icon bg-primary"><i class="fas fa-spinner"></i></div>
+            <div class="stats-content">
+                <h3>@Model.Count(t => t.Status == RoomTaskStatuses.InProgress)</h3>
+                <p>Đang thực hiện</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stats-card fade-in-up" style="animation-delay: 0.15s">
+            <div class="stats-icon bg-success"><i class="fas fa-check"></i></div>
+            <div class="stats-content">
+                <h3>@Model.Count(t => t.Status == RoomTaskStatuses.Completed)</h3>
+                <p>Hoàn thành</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card-modern fade-in-up mb-4">
+    <div class="card-header-modern d-flex justify-content-between align-items-center">
+        <span><i class="fas fa-filter me-2"></i>Bộ lọc công việc</span>
+        <div class="d-flex gap-2">
+            <a asp-action="CreateCleaningTask" class="btn btn-success-modern btn-sm">
+                <i class="fas fa-broom"></i> Tạo dọn phòng
+            </a>
+            <a asp-action="CreateMaintenanceTask" class="btn btn-warning-modern btn-sm">
+                <i class="fas fa-tools"></i> Tạo bảo trì
+            </a>
+        </div>
+    </div>
+    <div class="card-body-modern">
+        <form asp-action="Index" method="get" class="row g-3">
+            <div class="col-md-2">
+                <label class="form-label-modern">Phòng</label>
+                <input type="text" name="searchRoom" value="@ViewBag.SearchRoom" class="form-control form-control-modern" placeholder="Nhập mã phòng" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label-modern">Loại việc</label>
+                <select name="taskType" class="form-select form-control-modern" asp-items="ViewBag.TaskTypes">
+                    <option value="">Tất cả</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label-modern">Trạng thái</label>
+                <select name="status" class="form-select form-control-modern" asp-items="ViewBag.Statuses">
+                    <option value="">Tất cả</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label-modern">Ưu tiên</label>
+                <select name="priority" class="form-select form-control-modern" asp-items="ViewBag.Priorities">
+                    <option value="">Tất cả</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label-modern">Phụ trách</label>
+                <select name="assignedEmployeeID" class="form-select form-control-modern" asp-items="ViewBag.Employees">
+                    <option value="">Tất cả</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label-modern">Từ ngày</label>
+                <input type="date" name="fromDate" value="@ViewBag.FromDate" class="form-control form-control-modern" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label-modern">Đến ngày</label>
+                <input type="date" name="toDate" value="@ViewBag.ToDate" class="form-control form-control-modern" />
+            </div>
+            <div class="col-12 d-flex gap-2">
+                <button type="submit" class="btn btn-primary-modern">
+                    <i class="fas fa-search"></i> Lọc
+                </button>
+                <a asp-action="Index" class="btn btn-secondary">
+                    <i class="fas fa-undo"></i> Đặt lại
+                </a>
+                <a asp-action="History" class="btn btn-outline-secondary">
+                    <i class="fas fa-history"></i> Lịch sử
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card-modern fade-in-up">
+    <div class="card-header-modern">
+        <i class="fas fa-list-check me-2"></i>Danh sách công việc
+    </div>
+    <div class="card-body-modern p-0">
+        <div class="table-responsive">
+            <table class="table table-modern mb-0">
+                <thead>
+                    <tr>
+                        <th>Mã</th>
+                        <th>Phòng</th>
+                        <th>Loại</th>
+                        <th>Tiêu đề</th>
+                        <th>Ưu tiên</th>
+                        <th>Trạng thái</th>
+                        <th>Phụ trách</th>
+                        <th>Ngày tạo</th>
+                        <th class="text-end">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Any())
+                    {
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-4">Chưa có công việc phù hợp</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var item in Model)
+                        {
+                            var canAssignItem = (Context.Session.GetString("Role") == "MANAGER" || Context.Session.GetString("Role") == "ADMIN")
+                                && (item.Status == RoomTaskStatuses.Pending || item.Status == RoomTaskStatuses.Assigned);
+
+                            <tr>
+                                <td><strong class="text-primary">@item.RoomTaskID</strong></td>
+                                <td>@item.RoomID</td>
+                                <td>@TaskTypeText(item.TaskType)</td>
+                                <td>@item.Title</td>
+                                <td>@PriorityBadge(item.Priority)</td>
+                                <td>@StatusBadge(item.Status)</td>
+                                <td>@(item.AssignedEmployee?.FullName ?? "Chưa phân công")</td>
+                                <td>@item.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td class="text-end">
+                                    <a asp-action="Details" asp-route-id="@item.RoomTaskID" class="btn btn-info-modern btn-sm" title="Xem chi tiết">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    @if (canAssignItem)
+                                    {
+                                        <a asp-action="Assign" asp-route-id="@item.RoomTaskID" class="btn btn-warning-modern btn-sm" title="Phân công nhân viên">
+                                            <i class="fas fa-user-plus"></i>
+                                        </a>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@if (Model.TotalPages > 1)
+{
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            @for (var i = 1; i <= Model.TotalPages; i++)
+            {
+                <li class="page-item @(i == Model.CurrentPage ? "active" : "")">
+                    <a class="page-link" asp-action="Index" asp-route-page="@i" asp-route-searchRoom="@ViewBag.SearchRoom" asp-route-taskType="@ViewBag.TaskType" asp-route-status="@ViewBag.Status" asp-route-priority="@ViewBag.Priority" asp-route-assignedEmployeeID="@ViewBag.AssignedEmployeeID" asp-route-fromDate="@ViewBag.FromDate" asp-route-toDate="@ViewBag.ToDate">@i</a>
+                </li>
+            }
+        </ul>
+    </nav>
+}
+
+@functions {
+    private string TaskTypeText(string type) => type switch
+    {
+        RoomTaskTypes.Cleaning => "Dọn phòng",
+        RoomTaskTypes.Maintenance => "Bảo trì",
+        _ => type
+    };
+
+    private IHtmlContent PriorityBadge(string priority)
+    {
+        var css = priority switch
+        {
+            RoomTaskPriorities.Low => "badge-info-modern",
+            RoomTaskPriorities.High => "badge-warning-modern",
+            RoomTaskPriorities.Urgent => "badge-danger-modern",
+            _ => "badge-success-modern"
+        };
+        return new HtmlString($"<span class='badge-modern {css}'>{StatusDisplayHelper.RoomTaskPriorityText(priority)}</span>");
+    }
+
+    private IHtmlContent StatusBadge(string status) => StatusDisplayHelper.RoomTaskStatusBadge(status);
+}

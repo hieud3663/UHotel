@@ -25,6 +25,8 @@ namespace HotelManagement.Data
         public DbSet<RoomUsageService> RoomUsageServices { get; set; }
         public DbSet<Invoice> Invoices { get; set; }
         public DbSet<ConfirmationReceipt> ConfirmationReceipts { get; set; }
+        public DbSet<RoomTask> RoomTasks { get; set; }
+        public DbSet<RoomTaskHistory> RoomTaskHistories { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -77,6 +79,36 @@ namespace HotelManagement.Data
                 .HasOne(i => i.ReservationForm)
                 .WithMany(r => r.Invoices)
                 .HasForeignKey(i => i.ReservationFormID)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<RoomTask>()
+                .HasOne(t => t.Room)
+                .WithMany(r => r.RoomTasks)
+                .HasForeignKey(t => t.RoomID)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<RoomTask>()
+                .HasOne(t => t.CreatedByEmployee)
+                .WithMany(e => e.CreatedRoomTasks)
+                .HasForeignKey(t => t.CreatedByEmployeeID)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<RoomTask>()
+                .HasOne(t => t.AssignedEmployee)
+                .WithMany(e => e.AssignedRoomTasks)
+                .HasForeignKey(t => t.AssignedEmployeeID)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<RoomTaskHistory>()
+                .HasOne(h => h.RoomTask)
+                .WithMany(t => t.Histories)
+                .HasForeignKey(h => h.RoomTaskID)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<RoomTaskHistory>()
+                .HasOne(h => h.ChangedByEmployee)
+                .WithMany(e => e.RoomTaskHistories)
+                .HasForeignKey(h => h.ChangedByEmployeeID)
                 .OnDelete(DeleteBehavior.Restrict);
 
             // Configure computed columns

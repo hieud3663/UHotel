@@ -112,26 +112,7 @@
                         {
                             <tr>
                                 <td><strong>@room.RoomID</strong></td>
-                                <td>
-                                    @switch (room.RoomStatus)
-                                    {
-                                        case "AVAILABLE":
-                                            <span class="badge bg-success">Trống</span>
-                                            break;
-                                        case "ON_USE":
-                                            <span class="badge bg-info">Đang dùng</span>
-                                            break;
-                                        case "RESERVED":
-                                            <span class="badge bg-warning">Đã đặt</span>
-                                            break;
-                                        case "UNAVAILABLE":
-                                            <span class="badge bg-secondary">Không khả dụng</span>
-                                            break;
-                                        default:
-                                            <span class="badge bg-dark">@room.RoomStatus</span>
-                                            break;
-                                    }
-                                </td>
+                                <td>@StatusDisplayHelper.RoomStatusBootstrapBadge(room.RoomStatus)</td>
                                 <td>@room.DateOfCreation.ToString("dd/MM/yyyy")</td>
                             </tr>
                         }

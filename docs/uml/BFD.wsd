@@ -19,17 +19,25 @@
 *** 3.2 Thực hiện Check-out
 *** 3.3 Xử lý đổi phòng 
 *** 3.4 Quản lý trạng thái phòng 
-** 4. Quản lý Dịch vụ sử dụng
-*** 4.1 Thêm dịch vụ cho phòng
-*** 4.2 Cập nhật / Xóa dịch vụ
-*** 4.3 Tính phí dịch vụ
-** 5. Quản lý Hóa đơn & Thanh toán
-*** 5.1 Tạo & cập nhật hóa đơn 
-*** 5.2 Tính phụ phí muộn & thuế VAT 10 %
-*** 5.3 Thanh toán, đối trừ tiền cọc 
-*** 5.4 In và gửi hóa đơn
-** 6. Báo cáo & Hệ thống
-*** 6.1 Báo cáo doanh thu (phòng, dịch vụ)
-*** 6.2 Báo cáo công suất phòng
-*** 6.3 Báo cáo hiệu suất nhân viên
+** 4. Quản lý Bảo trì & Dọn phòng
+*** 4.1 Tạo yêu cầu dọn phòng
+*** 4.2 Tạo yêu cầu bảo trì
+*** 4.3 Phân công nhân viên xử lý
+*** 4.4 Bắt đầu xử lý công việc
+*** 4.5 Hoàn thành / Hủy công việc
+*** 4.6 Theo dõi lịch sử xử lý
+*** 4.7 Tự động tạo yêu cầu dọn phòng sau check-out
+** 5. Quản lý Dịch vụ sử dụng
+*** 5.1 Thêm dịch vụ cho phòng
+*** 5.2 Cập nhật / Xóa dịch vụ
+*** 5.3 Tính phí dịch vụ
+** 6. Quản lý Hóa đơn & Thanh toán
+*** 6.1 Tạo & cập nhật hóa đơn 
+*** 6.2 Tính phụ phí muộn & thuế VAT 10 %
+*** 6.3 Thanh toán, đối trừ tiền cọc 
+*** 6.4 In và gửi hóa đơn
+** 7. Báo cáo & Hệ thống
+*** 7.1 Báo cáo doanh thu (phòng, dịch vụ)
+*** 7.2 Báo cáo công suất phòng
+*** 7.3 Báo cáo hiệu suất nhân viên
 @endwbs

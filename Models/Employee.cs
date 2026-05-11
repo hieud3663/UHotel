@@ -70,5 +70,8 @@ namespace HotelManagement.Models
         public virtual ICollection<HistoryCheckOut>? HistoryCheckOuts { get; set; }
         public virtual ICollection<RoomChangeHistory>? RoomChangeHistories { get; set; }
         public virtual ICollection<RoomUsageService>? RoomUsageServices { get; set; }
+        public virtual ICollection<RoomTask>? CreatedRoomTasks { get; set; }
+        public virtual ICollection<RoomTask>? AssignedRoomTasks { get; set; }
+        public virtual ICollection<RoomTaskHistory>? RoomTaskHistories { get; set; }
     }
 }

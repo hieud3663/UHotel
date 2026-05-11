@@ -113,7 +113,7 @@ GO
 -- Tạo bảng Room
 CREATE TABLE Room (
     roomID NVARCHAR(15) NOT NULL PRIMARY KEY,
-    roomStatus NVARCHAR(20) NOT NULL CHECK (roomStatus IN ('AVAILABLE', 'ON_USE', 'UNAVAILABLE', 'OVERDUE', 'RESERVED')),
+    roomStatus NVARCHAR(20) NOT NULL CHECK (roomStatus IN ('AVAILABLE', 'ON_USE', 'UNAVAILABLE', 'OVERDUE', 'RESERVED', 'DIRTY', 'CLEANING', 'MAINTENANCE', 'OUT_OF_SERVICE')),
     dateOfCreation DATETIME NOT NULL,
     roomCategoryID NVARCHAR(15) NOT NULL,
     FOREIGN KEY (roomCategoryID) REFERENCES RoomCategory(roomCategoryID),
@@ -224,6 +224,50 @@ CREATE TABLE HistoryCheckOut (
     FOREIGN KEY (employeeID) REFERENCES Employee(employeeID)
 		ON DELETE SET NULL
         ON UPDATE CASCADE
+);
+GO
+
+-- Tạo bảng RoomTask (công việc bảo trì/dọn phòng)
+CREATE TABLE RoomTask (
+    roomTaskID NVARCHAR(15) NOT NULL PRIMARY KEY,
+    roomID NVARCHAR(15) NOT NULL,
+    taskType NVARCHAR(20) NOT NULL CHECK (taskType IN ('CLEANING', 'MAINTENANCE')),
+    title NVARCHAR(200) NOT NULL,
+    description NVARCHAR(MAX) NULL,
+    priority NVARCHAR(20) NOT NULL DEFAULT 'NORMAL' CHECK (priority IN ('LOW', 'NORMAL', 'HIGH', 'URGENT')),
+    status NVARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED')),
+    assignedEmployeeID NVARCHAR(15) NULL,
+    createdByEmployeeID NVARCHAR(15) NOT NULL,
+    createdAt DATETIME NOT NULL DEFAULT GETDATE(),
+    startedAt DATETIME NULL,
+    completedAt DATETIME NULL,
+    cancelledAt DATETIME NULL,
+    cancelReason NVARCHAR(500) NULL,
+    note NVARCHAR(MAX) NULL,
+
+    CONSTRAINT FK_RoomTask_Room FOREIGN KEY (roomID) REFERENCES Room(roomID),
+    CONSTRAINT FK_RoomTask_AssignedEmployee FOREIGN KEY (assignedEmployeeID) REFERENCES Employee(employeeID) ON DELETE SET NULL,
+    CONSTRAINT FK_RoomTask_CreatedByEmployee FOREIGN KEY (createdByEmployeeID) REFERENCES Employee(employeeID),
+    CONSTRAINT CHK_RoomTask_TimeFlow CHECK (
+        (startedAt IS NULL OR startedAt >= createdAt) AND
+        (completedAt IS NULL OR completedAt >= createdAt) AND
+        (cancelledAt IS NULL OR cancelledAt >= createdAt)
+    )
+);
+GO
+
+-- Tạo bảng RoomTaskHistory (lịch sử xử lý công việc bảo trì/dọn phòng)
+CREATE TABLE RoomTaskHistory (
+    roomTaskHistoryID NVARCHAR(15) NOT NULL PRIMARY KEY,
+    roomTaskID NVARCHAR(15) NOT NULL,
+    oldStatus NVARCHAR(20) NULL CHECK (oldStatus IN ('PENDING', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', NULL)),
+    newStatus NVARCHAR(20) NOT NULL CHECK (newStatus IN ('PENDING', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED')),
+    changedByEmployeeID NVARCHAR(15) NOT NULL,
+    changedAt DATETIME NOT NULL DEFAULT GETDATE(),
+    note NVARCHAR(MAX) NULL,
+
+    CONSTRAINT FK_RoomTaskHistory_RoomTask FOREIGN KEY (roomTaskID) REFERENCES RoomTask(roomTaskID) ON DELETE CASCADE,
+    CONSTRAINT FK_RoomTaskHistory_Employee FOREIGN KEY (changedByEmployeeID) REFERENCES Employee(employeeID)
 );
 GO
 
@@ -447,6 +491,12 @@ BEGIN
         WHEN @tableName = 'ConfirmationReceipt' THEN
             ISNULL((SELECT MAX(CAST(SUBSTRING(receiptID, LEN(@prefix) + 1, @padLength) AS INT))
                     FROM ConfirmationReceipt WHERE receiptID LIKE @prefix + '%'), 0)
+        WHEN @tableName = 'RoomTask' THEN
+            ISNULL((SELECT MAX(CAST(SUBSTRING(roomTaskID, LEN(@prefix) + 1, @padLength) AS INT))
+                    FROM RoomTask WHERE roomTaskID LIKE @prefix + '%'), 0)
+        WHEN @tableName = 'RoomTaskHistory' THEN
+            ISNULL((SELECT MAX(CAST(SUBSTRING(roomTaskHistoryID, LEN(@prefix) + 1, @padLength) AS INT))
+                    FROM RoomTaskHistory WHERE roomTaskHistoryID LIKE @prefix + '%'), 0)
         ELSE 0
     END;
     
@@ -1568,7 +1618,7 @@ BEGIN
         FROM Room 
         WHERE roomID = @roomID;
         
-        IF @roomStatus <> 'AVAILABLE' OR @roomStatus <> 'RESERVED'
+        IF @roomStatus NOT IN ('AVAILABLE', 'RESERVED')
         BEGIN
             RAISERROR('Phòng không khả dụng để check-in (trạng thái: %s).', 16, 1, @roomStatus);
             ROLLBACK TRANSACTION;
@@ -2260,6 +2310,156 @@ GO
 -------------------------------------
 -- SP 1: TRẢ PHÒNG RỒI THANH TOÁN (Checkout Then Pay)
 -------------------------------------
+CREATE OR ALTER PROCEDURE sp_CreateRoomTask
+    @roomID NVARCHAR(15),
+    @taskType NVARCHAR(20),
+    @title NVARCHAR(200),
+    @description NVARCHAR(MAX) = NULL,
+    @priority NVARCHAR(20) = 'NORMAL',
+    @createdByEmployeeID NVARCHAR(15),
+    @roomTaskID NVARCHAR(15) OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF NOT EXISTS (SELECT 1 FROM Room WHERE roomID = @roomID AND isActivate = 'ACTIVATE')
+        THROW 50001, N'Phòng không hợp lệ hoặc đã ngừng hoạt động.', 1;
+
+    IF @taskType NOT IN ('CLEANING', 'MAINTENANCE')
+        THROW 50002, N'Loại công việc không hợp lệ.', 1;
+
+    IF @priority NOT IN ('LOW', 'NORMAL', 'HIGH', 'URGENT')
+        THROW 50003, N'Mức độ ưu tiên không hợp lệ.', 1;
+
+    IF EXISTS (
+        SELECT 1 FROM RoomTask
+        WHERE roomID = @roomID
+          AND taskType = @taskType
+          AND status IN ('PENDING', 'ASSIGNED', 'IN_PROGRESS')
+    )
+        THROW 50004, N'Phòng đã có công việc cùng loại đang mở.', 1;
+
+    SET @roomTaskID = dbo.fn_GenerateID('RT-', 'RoomTask', 'roomTaskID', 6);
+
+    INSERT INTO RoomTask(roomTaskID, roomID, taskType, title, description, priority, status, createdByEmployeeID, createdAt)
+    VALUES (@roomTaskID, @roomID, @taskType, @title, @description, @priority, 'PENDING', @createdByEmployeeID, DATEADD(HOUR, 7, SYSUTCDATETIME()));
+
+    INSERT INTO RoomTaskHistory(roomTaskHistoryID, roomTaskID, oldStatus, newStatus, changedByEmployeeID, changedAt, note)
+    VALUES (dbo.fn_GenerateID('RTH-', 'RoomTaskHistory', 'roomTaskHistoryID', 6), @roomTaskID, NULL, 'PENDING', @createdByEmployeeID, DATEADD(HOUR, 7, SYSUTCDATETIME()), N'Tạo công việc');
+
+    UPDATE Room
+    SET roomStatus = CASE WHEN @taskType = 'CLEANING' THEN 'DIRTY' ELSE 'MAINTENANCE' END
+    WHERE roomID = @roomID;
+END;
+GO
+
+CREATE OR ALTER PROCEDURE sp_AssignRoomTask
+    @roomTaskID NVARCHAR(15),
+    @assignedEmployeeID NVARCHAR(15),
+    @changedByEmployeeID NVARCHAR(15),
+    @note NVARCHAR(MAX) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF NOT EXISTS (SELECT 1 FROM RoomTask WHERE roomTaskID = @roomTaskID AND status NOT IN ('COMPLETED', 'CANCELLED'))
+        THROW 50005, N'Công việc không tồn tại hoặc đã kết thúc.', 1;
+
+    IF NOT EXISTS (SELECT 1 FROM Employee WHERE employeeID = @assignedEmployeeID AND isActivate = 'ACTIVATE')
+        THROW 50006, N'Nhân viên được phân công không hợp lệ.', 1;
+
+    DECLARE @oldStatus NVARCHAR(20);
+    SELECT @oldStatus = status FROM RoomTask WHERE roomTaskID = @roomTaskID;
+
+    UPDATE RoomTask
+    SET assignedEmployeeID = @assignedEmployeeID,
+        status = 'ASSIGNED',
+        note = @note
+    WHERE roomTaskID = @roomTaskID;
+
+    INSERT INTO RoomTaskHistory(roomTaskHistoryID, roomTaskID, oldStatus, newStatus, changedByEmployeeID, changedAt, note)
+    VALUES (dbo.fn_GenerateID('RTH-', 'RoomTaskHistory', 'roomTaskHistoryID', 6), @roomTaskID, @oldStatus, 'ASSIGNED', @changedByEmployeeID, DATEADD(HOUR, 7, SYSUTCDATETIME()), @note);
+END;
+GO
+
+CREATE OR ALTER PROCEDURE sp_UpdateRoomTaskStatus
+    @roomTaskID NVARCHAR(15),
+    @newStatus NVARCHAR(20),
+    @changedByEmployeeID NVARCHAR(15),
+    @note NVARCHAR(MAX) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @newStatus NOT IN ('IN_PROGRESS', 'COMPLETED')
+        THROW 50007, N'Trạng thái cập nhật không hợp lệ.', 1;
+
+    DECLARE @oldStatus NVARCHAR(20), @taskType NVARCHAR(20), @roomID NVARCHAR(15);
+    SELECT @oldStatus = status, @taskType = taskType, @roomID = roomID
+    FROM RoomTask
+    WHERE roomTaskID = @roomTaskID AND status NOT IN ('COMPLETED', 'CANCELLED');
+
+    IF @oldStatus IS NULL
+        THROW 50008, N'Công việc không tồn tại hoặc đã kết thúc.', 1;
+
+    UPDATE RoomTask
+    SET status = @newStatus,
+        startedAt = CASE WHEN @newStatus = 'IN_PROGRESS' AND startedAt IS NULL THEN DATEADD(HOUR, 7, SYSUTCDATETIME()) ELSE startedAt END,
+        completedAt = CASE WHEN @newStatus = 'COMPLETED' THEN DATEADD(HOUR, 7, SYSUTCDATETIME()) ELSE completedAt END,
+        note = @note
+    WHERE roomTaskID = @roomTaskID;
+
+    UPDATE Room
+    SET roomStatus = CASE
+        WHEN @newStatus = 'IN_PROGRESS' AND @taskType = 'CLEANING' THEN 'CLEANING'
+        WHEN @newStatus = 'IN_PROGRESS' AND @taskType = 'MAINTENANCE' THEN 'MAINTENANCE'
+        WHEN @newStatus = 'COMPLETED' THEN 'AVAILABLE'
+        ELSE roomStatus
+    END
+    WHERE roomID = @roomID;
+
+    INSERT INTO RoomTaskHistory(roomTaskHistoryID, roomTaskID, oldStatus, newStatus, changedByEmployeeID, changedAt, note)
+    VALUES (dbo.fn_GenerateID('RTH-', 'RoomTaskHistory', 'roomTaskHistoryID', 6), @roomTaskID, @oldStatus, @newStatus, @changedByEmployeeID, DATEADD(HOUR, 7, SYSUTCDATETIME()), @note);
+END;
+GO
+
+CREATE OR ALTER PROCEDURE sp_CancelRoomTask
+    @roomTaskID NVARCHAR(15),
+    @changedByEmployeeID NVARCHAR(15),
+    @cancelReason NVARCHAR(500)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @oldStatus NVARCHAR(20), @roomID NVARCHAR(15);
+    SELECT @oldStatus = status, @roomID = roomID
+    FROM RoomTask
+    WHERE roomTaskID = @roomTaskID AND status <> 'COMPLETED';
+
+    IF @oldStatus IS NULL
+        THROW 50009, N'Công việc không tồn tại hoặc đã hoàn thành.', 1;
+
+    UPDATE RoomTask
+    SET status = 'CANCELLED',
+        cancelledAt = DATEADD(HOUR, 7, SYSUTCDATETIME()),
+        cancelReason = @cancelReason
+    WHERE roomTaskID = @roomTaskID;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM RoomTask
+        WHERE roomID = @roomID
+          AND roomTaskID <> @roomTaskID
+          AND status IN ('PENDING', 'ASSIGNED', 'IN_PROGRESS')
+    )
+    BEGIN
+        UPDATE Room SET roomStatus = 'AVAILABLE' WHERE roomID = @roomID;
+    END
+
+    INSERT INTO RoomTaskHistory(roomTaskHistoryID, roomTaskID, oldStatus, newStatus, changedByEmployeeID, changedAt, note)
+    VALUES (dbo.fn_GenerateID('RTH-', 'RoomTaskHistory', 'roomTaskHistoryID', 6), @roomTaskID, @oldStatus, 'CANCELLED', @changedByEmployeeID, DATEADD(HOUR, 7, SYSUTCDATETIME()), @cancelReason);
+END;
+GO
+
 CREATE OR ALTER PROCEDURE sp_CreateInvoice_CheckoutThenPay
     @reservationFormID NVARCHAR(15),
     @employeeID NVARCHAR(15)

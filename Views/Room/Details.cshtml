@@ -35,26 +35,7 @@
                     </tr>
                     <tr>
                         <th><i class="fas fa-info-circle"></i> Trạng thái:</th>
-                        <td>
-                            @if (Model.RoomStatus == "AVAILABLE")
-                            {
-                                <span class="badge-modern badge-success-modern">
-                                    <i class="fas fa-check-circle"></i> Phòng trống
-                                </span>
-                            }
-                            else if (Model.RoomStatus == "ON_USE")
-                            {
-                                <span class="badge-modern badge-warning-modern">
-                                    <i class="fas fa-user-check"></i> Đang sử dụng
-                                </span>
-                            }
-                            else if (Model.RoomStatus == "RESERVED")
-                            {
-                                <span class="badge-modern badge-info-modern">
-                                    <i class="fas fa-bookmark"></i> Đã đặt
-                                </span>
-                            }
-                        </td>
+                        <td>@StatusDisplayHelper.RoomStatusBadge(Model.RoomStatus)</td>
                     </tr>
                     <tr>
                         <th><i class="fas fa-calendar"></i> Ngày tạo:</th>

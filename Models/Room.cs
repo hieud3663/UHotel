@@ -37,5 +37,6 @@ namespace HotelManagement.Models
         public virtual RoomCategory? RoomCategory { get; set; }
         public virtual ICollection<ReservationForm>? ReservationForms { get; set; }
         public virtual ICollection<RoomChangeHistory>? RoomChangeHistories { get; set; }
+        public virtual ICollection<RoomTask>? RoomTasks { get; set; }
     }
 }

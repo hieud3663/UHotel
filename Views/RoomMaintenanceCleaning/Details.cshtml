@@ -1,0 +1,257 @@
+@model HotelManagement.Models.RoomTask
+@using HotelManagement.Models
+@using Microsoft.AspNetCore.Html
+
+@{
+    ViewData["Title"] = "Chi tiết công việc";
+    var isPending = Model.Status == RoomTaskStatuses.Pending;
+    var isAssigned = Model.Status == RoomTaskStatuses.Assigned;
+    var isInProgress = Model.Status == RoomTaskStatuses.InProgress;
+    var isClosed = Model.Status == RoomTaskStatuses.Completed || Model.Status == RoomTaskStatuses.Cancelled;
+    var canManage = Context.Session.GetString("Role") == "MANAGER" || Context.Session.GetString("Role") == "ADMIN";
+    var hasAssignedEmployee = !string.IsNullOrWhiteSpace(Model.AssignedEmployeeID);
+    var canAssign = canManage && (isPending || isAssigned);
+    var canStart = isAssigned && hasAssignedEmployee;
+    var canComplete = isInProgress;
+    var canCancel = canManage && !isClosed;
+}
+
+<div class="page-header fade-in-up">
+    <h1><i class="fas fa-clipboard-check"></i> Chi tiết công việc</h1>
+    <p>Thông tin công việc @Model.RoomTaskID cho phòng @Model.RoomID</p>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card-modern fade-in-up">
+            <div class="card-header-modern">
+                <i class="fas fa-info-circle me-2"></i>Thông tin chính
+            </div>
+            <div class="card-body-modern">
+                <table class="table table-borderless mb-0">
+                    <tr>
+                        <th width="35%">Mã công việc:</th>
+                        <td><strong class="text-primary">@Model.RoomTaskID</strong></td>
+                    </tr>
+                    <tr>
+                        <th>Phòng:</th>
+                        <td>@Model.RoomID - @Model.Room?.RoomCategory?.RoomCategoryName</td>
+                    </tr>
+                    <tr>
+                        <th>Loại công việc:</th>
+                        <td>@(Model.TaskType == RoomTaskTypes.Cleaning ? "Dọn phòng" : "Bảo trì")</td>
+                    </tr>
+                    <tr>
+                        <th>Tiêu đề:</th>
+                        <td>@Model.Title</td>
+                    </tr>
+                    <tr>
+                        <th>Mô tả:</th>
+                        <td>@(string.IsNullOrWhiteSpace(Model.Description) ? "Không có" : Model.Description)</td>
+                    </tr>
+                    <tr>
+                        <th>Mức độ ưu tiên:</th>
+                        <td>@PriorityBadge(Model.Priority)</td>
+                    </tr>
+                    <tr>
+                        <th>Trạng thái:</th>
+                        <td>@StatusBadge(Model.Status)</td>
+                    </tr>
+                    <tr>
+                        <th>Người tạo:</th>
+                        <td>@(Model.CreatedByEmployee?.FullName ?? Model.CreatedByEmployeeID)</td>
+                    </tr>
+                    <tr>
+                        <th>Nhân viên phụ trách:</th>
+                        <td>@(Model.AssignedEmployee?.FullName ?? "Chưa phân công")</td>
+                    </tr>
+                    <tr>
+                        <th>Ngày tạo:</th>
+                        <td>@Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                    </tr>
+                    @if (Model.StartedAt.HasValue)
+                    {
+                        <tr>
+                            <th>Ngày bắt đầu:</th>
+                            <td>@Model.StartedAt.Value.ToString("dd/MM/yyyy HH:mm")</td>
+                        </tr>
+                    }
+                    @if (Model.CompletedAt.HasValue)
+                    {
+                        <tr>
+                            <th>Ngày hoàn thành:</th>
+                            <td>@Model.CompletedAt.Value.ToString("dd/MM/yyyy HH:mm")</td>
+                        </tr>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(Model.CancelReason))
+                    {
+                        <tr>
+                            <th>Lý do hủy:</th>
+                            <td class="text-danger">@Model.CancelReason</td>
+                        </tr>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(Model.Note))
+                    {
+                        <tr>
+                            <th>Ghi chú:</th>
+                            <td>@Model.Note</td>
+                        </tr>
+                    }
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card-modern fade-in-up mb-4" style="animation-delay: 0.05s">
+            <div class="card-header-modern">
+                <i class="fas fa-gears me-2"></i>Thao tác
+            </div>
+            <div class="card-body-modern">
+                @if (isClosed)
+                {
+                    <div class="alert alert-info mb-0">
+                        <i class="fas fa-info-circle"></i> Công việc đã kết thúc, các thao tác xử lý đã được khóa.
+                    </div>
+                }
+                else
+                {
+                    @if (isInProgress)
+                    {
+                        <div class="alert alert-primary mb-3">
+                            <i class="fas fa-spinner"></i> Công việc đang được xử lý. Có thể nhập kết quả và hoàn thành khi đã xử lý xong.
+                        </div>
+                    }
+                    else if (!hasAssignedEmployee)
+                    {
+                        <div class="alert alert-warning mb-3">
+                            <i class="fas fa-user-plus"></i> Công việc chưa được phân công. Cần phân công nhân viên trước khi bắt đầu xử lý.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-info mb-3">
+                            <i class="fas fa-clock"></i> Công việc đã được phân công. Nhân viên phụ trách có thể bắt đầu xử lý.
+                        </div>
+                    }
+
+                    <div class="d-grid gap-2">
+                        @if (canAssign)
+                        {
+                            <a asp-action="Assign" asp-route-id="@Model.RoomTaskID" class="btn btn-warning-modern">
+                                <i class="fas fa-user-plus"></i> @(isAssigned ? "Đổi nhân viên phụ trách" : "Phân công nhân viên")
+                            </a>
+                        }
+
+                        @if (canStart)
+                        {
+                            <form asp-action="Start" method="post">
+                                <input type="hidden" name="id" value="@Model.RoomTaskID" />
+                                <button type="submit" class="btn btn-primary-modern w-100">
+                                    <i class="fas fa-play"></i> Bắt đầu xử lý
+                                </button>
+                            </form>
+                        }
+
+                        @if (canComplete)
+                        {
+                            <form asp-action="Complete" method="post">
+                                <input type="hidden" name="id" value="@Model.RoomTaskID" />
+                                <div class="mb-3">
+                                    <label class="form-label-modern">Ghi chú hoàn thành</label>
+                                    <textarea name="note" rows="3" class="form-control form-control-modern" placeholder="Kết quả xử lý..."></textarea>
+                                </div>
+                                @if (Model.TaskType == RoomTaskTypes.Maintenance)
+                                {
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input" type="checkbox" name="createCleaningAfterMaintenance" value="true" id="createCleaningAfterMaintenance" />
+                                        <label class="form-check-label" for="createCleaningAfterMaintenance">
+                                            Tạo yêu cầu dọn phòng sau bảo trì
+                                        </label>
+                                    </div>
+                                }
+                                <button type="submit" class="btn btn-success-modern w-100">
+                                    <i class="fas fa-check"></i> Hoàn thành
+                                </button>
+                            </form>
+                        }
+
+                        @if (canCancel)
+                        {
+                            <form asp-action="Cancel" method="post" onsubmit="return confirm('Bạn chắc chắn muốn hủy công việc này?');">
+                                <input type="hidden" name="id" value="@Model.RoomTaskID" />
+                                <div class="mb-3">
+                                    <label class="form-label-modern">Lý do hủy</label>
+                                    <textarea name="cancelReason" rows="2" class="form-control form-control-modern" required></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-danger w-100">
+                                    <i class="fas fa-ban"></i> Hủy công việc
+                                </button>
+                            </form>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <a asp-action="Index" class="btn btn-secondary w-100">
+            <i class="fas fa-arrow-left"></i> Quay lại danh sách
+        </a>
+    </div>
+</div>
+
+<div class="card-modern fade-in-up mt-4">
+    <div class="card-header-modern">
+        <i class="fas fa-history me-2"></i>Lịch sử xử lý
+    </div>
+    <div class="card-body-modern p-0">
+        <div class="table-responsive">
+            <table class="table table-modern mb-0">
+                <thead>
+                    <tr>
+                        <th>Thời điểm</th>
+                        <th>Trạng thái cũ</th>
+                        <th>Trạng thái mới</th>
+                        <th>Người thay đổi</th>
+                        <th>Ghi chú</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Histories == null || !Model.Histories.Any())
+                    {
+                        <tr><td colspan="5" class="text-center text-muted py-4">Chưa có lịch sử</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var history in Model.Histories.OrderByDescending(h => h.ChangedAt))
+                        {
+                            <tr>
+                                <td>@history.ChangedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>@StatusDisplayHelper.RoomTaskStatusText(history.OldStatus)</td>
+                                <td>@StatusDisplayHelper.RoomTaskStatusText(history.NewStatus)</td>
+                                <td>@(history.ChangedByEmployee?.FullName ?? history.ChangedByEmployeeID)</td>
+                                <td>@history.Note</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@functions {
+    private IHtmlContent PriorityBadge(string priority)
+    {
+        var css = priority switch
+        {
+            RoomTaskPriorities.Low => "badge-info-modern",
+            RoomTaskPriorities.High => "badge-warning-modern",
+            RoomTaskPriorities.Urgent => "badge-danger-modern",
+            _ => "badge-success-modern"
+        };
+        return new HtmlString($"<span class='badge-modern {css}'>{StatusDisplayHelper.RoomTaskPriorityText(priority)}</span>");
+    }
+
+    private IHtmlContent StatusBadge(string status) => StatusDisplayHelper.RoomTaskStatusBadge(status);
+}

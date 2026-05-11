@@ -105,22 +105,7 @@
 
                         <dt class="col-sm-5">Trạng thái phòng:</dt>
                         <dd class="col-sm-7">
-                            @if (Model.Room?.RoomStatus == "AVAILABLE")
-                            {
-                                <span class="badge bg-success">Trống</span>
-                            }
-                            else if (Model.Room?.RoomStatus == "ON_USE")
-                            {
-                                <span class="badge bg-warning">Đang sử dụng</span>
-                            }
-                            else if (Model.Room?.RoomStatus == "RESERVED")
-                            {
-                                <span class="badge bg-info">Đã đặt</span>
-                            }
-                            else
-                            {
-                                <span class="badge bg-secondary">@Model.Room?.RoomStatus</span>
-                            }
+                            @StatusDisplayHelper.RoomStatusBootstrapBadge(Model.Room?.RoomStatus)
                         </dd>
                     </dl>
                 </div>

@@ -65,6 +65,24 @@
         background: linear-gradient(135deg, #3498db 0%, #5dade2 100%);
     }
 
+    .room-card.unavailable,
+    .room-card.out_of_service {
+        background: linear-gradient(135deg, #7f8c8d 0%, #95a5a6 100%);
+    }
+
+    .room-card.overdue,
+    .room-card.maintenance {
+        background: linear-gradient(135deg, #c0392b 0%, #e74c3c 100%);
+    }
+
+    .room-card.dirty {
+        background: linear-gradient(135deg, #d35400 0%, #e67e22 100%);
+    }
+
+    .room-card.cleaning {
+        background: linear-gradient(135deg, #16a085 0%, #1abc9c 100%);
+    }
+
     .room-card-body {
         padding: 20px;
         text-align: center;
@@ -252,32 +270,7 @@
                                     <span class="text-muted">---</span>
                                 }
                             </td>
-                            <td>
-                                @if (item?.RoomStatus == "AVAILABLE")
-                                {
-                                    <span class="badge-modern badge-success-modern">
-                                        <i class="fas fa-check-circle"></i> Trống
-                                    </span>
-                                }
-                                else if (item?.RoomStatus == "ON_USE")
-                                {
-                                    <span class="badge-modern badge-warning-modern">
-                                        <i class="fas fa-user-check"></i> Đang sử dụng
-                                    </span>
-                                }
-                                else if (item?.RoomStatus == "RESERVED")
-                                {
-                                    <span class="badge-modern badge-info-modern">
-                                        <i class="fas fa-bookmark"></i> Đã đặt
-                                    </span>
-                                }
-                                else
-                                {
-                                    <span class="badge-modern badge-danger-modern">
-                                        <i class="fas fa-exclamation-circle"></i> @item?.RoomStatus
-                                    </span>
-                                }
-                            </td>
+                            <td>@StatusDisplayHelper.RoomStatusBadge(item?.RoomStatus)</td>
                             <td>@item?.DateOfCreation.ToString("dd/MM/yyyy")</td>
                             <td>
                                 <div class="d-flex gap-2">
@@ -327,20 +320,8 @@
             var canModify = item?.RoomStatus == "AVAILABLE";
             
             var statusClass = item?.RoomStatus?.ToLower() ?? "available";
-            var statusText = item?.RoomStatus switch
-            {
-                "AVAILABLE" => "Trống",
-                "ON_USE" => "Đang sử dụng",
-                "RESERVED" => "Đã đặt",
-                _ => item?.RoomStatus ?? "N/A"
-            };
-            var statusIcon = item?.RoomStatus switch
-            {
-                "AVAILABLE" => "<i class='fas fa-check-circle room-icon'></i>",
-                "ON_USE" => "<i class='fas fa-user-check room-icon'></i>",
-                "RESERVED" => "<i class='fas fa-bookmark room-icon'></i>",
-                _ => "<i class='fas fa-question-circle room-icon'></i>"
-            };
+            var statusText = StatusDisplayHelper.RoomStatusText(item?.RoomStatus);
+            var statusIcon = $"<i class='{StatusDisplayHelper.RoomStatusIcon(item?.RoomStatus)} room-icon'></i>";
             
             <div class="room-card @statusClass fade-in-up">
                 <div class="room-card-body">

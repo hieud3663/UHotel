@@ -1,0 +1,77 @@
+@model HotelManagement.Models.RoomTask
+
+@{
+    ViewData["Title"] = "Tạo yêu cầu dọn phòng";
+}
+
+<div class="page-header fade-in-up">
+    <h1><i class="fas fa-broom"></i> Tạo yêu cầu dọn phòng</h1>
+    <p>Ghi nhận phòng cần dọn và chuyển trạng thái phòng sang cần dọn</p>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card-modern fade-in-up">
+            <div class="card-header-modern">
+                <i class="fas fa-clipboard-list me-2"></i>Thông tin dọn phòng
+            </div>
+            <div class="card-body-modern">
+                <form asp-action="CreateCleaningTask" method="post">
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+                    <div class="mb-4">
+                        <label asp-for="RoomID" class="form-label-modern">
+                            <i class="fas fa-door-open"></i> Phòng <span class="text-danger">*</span>
+                        </label>
+                        <select asp-for="RoomID" class="form-select form-control-modern" asp-items="ViewBag.Rooms" required>
+                            <option value="">-- Chọn phòng --</option>
+                        </select>
+                        <span asp-validation-for="RoomID" class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label asp-for="Title" class="form-label-modern">
+                            <i class="fas fa-heading"></i> Tiêu đề <span class="text-danger">*</span>
+                        </label>
+                        <input asp-for="Title" class="form-control form-control-modern" required />
+                        <span asp-validation-for="Title" class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label asp-for="Priority" class="form-label-modern">
+                            <i class="fas fa-flag"></i> Mức độ ưu tiên <span class="text-danger">*</span>
+                        </label>
+                        <select asp-for="Priority" class="form-select form-control-modern" asp-items="ViewBag.Priorities" required></select>
+                        <span asp-validation-for="Priority" class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label asp-for="Description" class="form-label-modern">
+                            <i class="fas fa-align-left"></i> Mô tả
+                        </label>
+                        <textarea asp-for="Description" rows="4" class="form-control form-control-modern" placeholder="Ví dụ: Dọn phòng sau trả phòng, thay ga giường, bổ sung vật dụng..."></textarea>
+                        <span asp-validation-for="Description" class="text-danger"></span>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        Sau khi tạo yêu cầu, phòng sẽ được chuyển sang trạng thái cần dọn.
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-success-modern">
+                            <i class="fas fa-save"></i> Tạo yêu cầu
+                        </button>
+                        <a asp-action="Index" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Hủy
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

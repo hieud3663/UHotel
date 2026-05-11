@@ -339,7 +339,8 @@ namespace HotelManagement.Controllers
 
                 if (result != null && result.Status == "PAYMENT_CONFIRMED")
                 {
-                    TempData["Success"] = "Thanh toán thành công! Phòng đã được giải phóng.";
+                    await CreateCleaningTaskAfterCheckout(invoiceID: invoiceID, employeeID: employeeID);
+                    TempData["Success"] = "Thanh toán thành công! Phòng đã được chuyển sang trạng thái cần dọn.";
                     return RedirectToAction("Details", "Invoice", new { id = invoiceID });
                 }
                 else
@@ -434,6 +435,8 @@ namespace HotelManagement.Controllers
 
                 if (result != null && result.Status == "PAYMENT_CONFIRMED")
                 {
+                    await CreateCleaningTaskAfterCheckout(invoiceID: invoiceID, employeeID: null);
+
                     return Ok(new
                     {
                         status = "success",
@@ -523,7 +526,8 @@ namespace HotelManagement.Controllers
                     }
                     else
                     {
-                        TempData["Success"] = "Trả phòng đúng giờ! Cảm ơn quý khách.";
+                        await CreateCleaningTaskAfterCheckout(reservationFormID: reservationFormID, employeeID: employeeID);
+                        TempData["Success"] = "Trả phòng đúng giờ! Phòng đã được chuyển sang trạng thái cần dọn.";
                         return RedirectToAction("Details", "Invoice", new { id = result.InvoiceID });
                     }
                 }
@@ -563,7 +567,8 @@ namespace HotelManagement.Controllers
 
                 if (result != null)
                 {
-                    TempData["Success"] = $"Check-out thành công! {result.CheckoutStatus}";
+                    await CreateCleaningTaskAfterCheckout(reservationFormID: reservationFormID, employeeID: employeeID);
+                    TempData["Success"] = $"Check-out thành công! Phòng đã được chuyển sang trạng thái cần dọn. {result.CheckoutStatus}";
 
                     // Lấy invoice vừa tạo để redirect
                     var invoice = await _context.Invoices
@@ -588,6 +593,132 @@ namespace HotelManagement.Controllers
             }
 
             return RedirectToAction(nameof(Index));
+        }
+
+        private async Task CreateCleaningTaskAfterCheckout(string? reservationFormID = null, string? invoiceID = null, string? employeeID = null)
+        {
+            ReservationForm? reservation = null;
+
+            if (!string.IsNullOrWhiteSpace(reservationFormID))
+            {
+                reservation = await _context.ReservationForms
+                    .Include(r => r.Room)
+                    .FirstOrDefaultAsync(r => r.ReservationFormID == reservationFormID);
+            }
+            else if (!string.IsNullOrWhiteSpace(invoiceID))
+            {
+                reservation = await _context.Invoices
+                    .Where(i => i.InvoiceID == invoiceID)
+                    .Include(i => i.ReservationForm)
+                        .ThenInclude(r => r!.Room)
+                    .Select(i => i.ReservationForm)
+                    .FirstOrDefaultAsync();
+            }
+
+            if (reservation?.Room == null)
+            {
+                return;
+            }
+
+            var creatorEmployeeID = employeeID;
+
+            if (string.IsNullOrWhiteSpace(creatorEmployeeID))
+            {
+                creatorEmployeeID = reservation.EmployeeID;
+            }
+
+            if (string.IsNullOrWhiteSpace(creatorEmployeeID))
+            {
+                creatorEmployeeID = await _context.HistoryCheckOuts
+                    .Where(h => h.ReservationFormID == reservation.ReservationFormID && h.EmployeeID != null && h.EmployeeID != "")
+                    .OrderByDescending(h => h.CheckOutDate)
+                    .Select(h => h.EmployeeID!)
+                    .FirstOrDefaultAsync();
+            }
+
+            if (string.IsNullOrWhiteSpace(creatorEmployeeID))
+            {
+                creatorEmployeeID = await _context.Employees
+                    .Where(e => e.IsActivate == "ACTIVATE")
+                    .OrderBy(e => e.EmployeeID)
+                    .Select(e => e.EmployeeID)
+                    .FirstOrDefaultAsync();
+            }
+
+            if (string.IsNullOrWhiteSpace(creatorEmployeeID))
+            {
+                return;
+            }
+
+            var hasOpenCleaningTask = await _context.RoomTasks.AnyAsync(t =>
+                t.RoomID == reservation.Room.RoomID &&
+                t.TaskType == RoomTaskTypes.Cleaning &&
+                RoomTaskStatuses.OpenStatuses.Contains(t.Status));
+
+            if (hasOpenCleaningTask)
+            {
+                reservation.Room.RoomStatus = RoomOperationalStatuses.Dirty;
+                await _context.SaveChangesAsync();
+                return;
+            }
+
+            var roomTask = new RoomTask
+            {
+                RoomTaskID = await GenerateRoomTaskID(),
+                RoomID = reservation.Room.RoomID,
+                TaskType = RoomTaskTypes.Cleaning,
+                Title = "Dọn phòng sau trả phòng",
+                Description = $"Tự động tạo sau khi khách trả phòng từ phiếu {reservation.ReservationFormID}.",
+                Priority = RoomTaskPriorities.Normal,
+                Status = RoomTaskStatuses.Pending,
+                CreatedByEmployeeID = creatorEmployeeID,
+                CreatedAt = DateTime.UtcNow.AddHours(7)
+            };
+
+            reservation.Room.RoomStatus = RoomOperationalStatuses.Dirty;
+            _context.RoomTasks.Add(roomTask);
+            _context.RoomTaskHistories.Add(new RoomTaskHistory
+            {
+                RoomTaskHistoryID = await GenerateRoomTaskHistoryID(),
+                RoomTaskID = roomTask.RoomTaskID,
+                OldStatus = null,
+                NewStatus = RoomTaskStatuses.Pending,
+                ChangedByEmployeeID = creatorEmployeeID,
+                ChangedAt = DateTime.UtcNow.AddHours(7),
+                Note = "Tự động tạo yêu cầu dọn phòng sau trả phòng"
+            });
+
+            await _context.SaveChangesAsync();
+        }
+
+        private async Task<string> GenerateRoomTaskID()
+        {
+            var ids = await _context.RoomTasks
+                .Where(t => t.RoomTaskID.StartsWith("RT-"))
+                .Select(t => t.RoomTaskID.Substring(3))
+                .ToListAsync();
+
+            var nextNumber = ids
+                .Select(value => int.TryParse(value, out var number) ? number : 0)
+                .DefaultIfEmpty(0)
+                .Max() + 1;
+
+            return $"RT-{nextNumber:D6}";
+        }
+
+        private async Task<string> GenerateRoomTaskHistoryID()
+        {
+            var ids = await _context.RoomTaskHistories
+                .Where(h => h.RoomTaskHistoryID.StartsWith("RTH-"))
+                .Select(h => h.RoomTaskHistoryID.Substring(4))
+                .ToListAsync();
+
+            var nextNumber = ids
+                .Select(value => int.TryParse(value, out var number) ? number : 0)
+                .DefaultIfEmpty(0)
+                .Max() + 1;
+
+            return $"RTH-{nextNumber:D6}";
         }
     }
 }

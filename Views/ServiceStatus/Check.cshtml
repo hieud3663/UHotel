@@ -1,11 +1,11 @@
 @{
-    ViewData["Title"] = "Service Status Monitor";
+    ViewData["Title"] = "Theo dõi cập nhật trạng thái phòng";
 }
 
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Background Service Monitor</title>
+    <title>Theo dõi dịch vụ nền</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         .status-container {
@@ -163,19 +163,19 @@
 <body>
     <div class="status-container">
         <h1 style="text-align: center; margin-bottom: 30px;">
-            <i class="fas fa-heartbeat"></i> Background Service Monitor
+            <i class="fas fa-heartbeat"></i> Theo dõi dịch vụ nền
         </h1>
 
         <!-- Service Info Card -->
         <div class="status-card">
             <div class="status-header">
                 <i class="fas fa-server" style="font-size: 1.5em; color: #667eea;"></i>
-                <h3 style="margin: 0;">Room Status Update Service</h3>
+                <h3 style="margin: 0;">Dịch vụ cập nhật trạng thái phòng</h3>
                 <span class="status-badge status-running">
-                    <i class="fas fa-check-circle"></i> RUNNING
+                    <i class="fas fa-check-circle"></i> Đang chạy
                 </span>
             </div>
-            <p><strong>Chức năng:</strong> Tự động cập nhật phòng sang trạng thái RESERVED khi còn ≤ 5 giờ đến check-in</p>
+            <p><strong>Chức năng:</strong> Tự động cập nhật phòng sang trạng thái đã đặt khi còn ≤ 5 giờ đến check-in</p>
             <p><strong>Tần suất:</strong> Mỗi 30 phút</p>
             <p><strong>Stored Procedure:</strong> <code>sp_UpdateRoomStatusToReserved</code></p>
             <p><strong>Trạng thái:</strong> Service đang chạy trong background và tự động cập nhật</p>
@@ -184,15 +184,15 @@
         <!-- Statistics -->
         <div class="stats-grid">
             <div class="stat-box">
-                <div class="stat-label">Total Reservations</div>
+                <div class="stat-label">Tổng đặt phòng</div>
                 <div class="stat-number" id="totalCount">-</div>
             </div>
             <div class="stat-box" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-                <div class="stat-label">Ready to Update</div>
+                <div class="stat-label">Sẵn sàng cập nhật</div>
                 <div class="stat-number" id="readyCount">-</div>
             </div>
             <div class="stat-box" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
-                <div class="stat-label">Last Update</div>
+                <div class="stat-label">Lần cập nhật cuối</div>
                 <div class="stat-number" style="font-size: 1.2em;" id="lastUpdate">-</div>
             </div>
         </div>
@@ -201,7 +201,7 @@
         <div class="status-card">
             <div class="status-header">
                 <i class="fas fa-tools" style="font-size: 1.5em; color: #667eea;"></i>
-                <h3 style="margin: 0;">Manual Actions</h3>
+                <h3 style="margin: 0;">Thao tác thủ công</h3>
             </div>
             <button class="btn-manual" onclick="runManualUpdate()">
                 <i class="fas fa-play"></i> Chạy cập nhật ngay
@@ -215,7 +215,7 @@
         <div class="status-card">
             <div class="status-header">
                 <i class="fas fa-clock" style="font-size: 1.5em; color: #667eea;"></i>
-                <h3 style="margin: 0;">Upcoming Reservations</h3>
+                <h3 style="margin: 0;">Đặt phòng sắp đến hạn</h3>
             </div>
             <div id="reservationsContainer">
                 <p style="text-align: center; color: #999;">
@@ -228,7 +228,7 @@
         <div class="status-card">
             <div class="status-header">
                 <i class="fas fa-list" style="font-size: 1.5em; color: #667eea;"></i>
-                <h3 style="margin: 0;">Activity Log</h3>
+                <h3 style="margin: 0;">Nhật ký hoạt động</h3>
             </div>
             <div class="log-box" id="logBox">
                 <div class="log-line log-info">
@@ -299,6 +299,21 @@
             });
         }
 
+        function getRoomStatusText(status) {
+            switch (status) {
+                case 'AVAILABLE': return 'Trống';
+                case 'ON_USE': return 'Đang sử dụng';
+                case 'RESERVED': return 'Đã đặt';
+                case 'UNAVAILABLE': return 'Không khả dụng';
+                case 'OVERDUE': return 'Quá hạn';
+                case 'DIRTY': return 'Cần dọn';
+                case 'CLEANING': return 'Đang dọn';
+                case 'MAINTENANCE': return 'Bảo trì';
+                case 'OUT_OF_SERVICE': return 'Ngừng sử dụng';
+                default: return status || 'Không xác định';
+            }
+        }
+
         function displayReservations(data) {
             if (data.length === 0) {
                 $('#reservationsContainer').html(`
@@ -331,8 +346,9 @@
                 
                 const countdownClass = isUrgent ? 'countdown urgent' : 'countdown';
                 const statusBadge = room.updateStatus === 'READY' 
-                    ? '<span class="status-badge status-ready">READY</span>'
-                    : '<span class="status-badge status-pending">PENDING</span>';
+                    ? '<span class="status-badge status-ready">Sẵn sàng</span>'
+                    : '<span class="status-badge status-pending">Đang chờ</span>';
+                const roomStatusText = getRoomStatusText(room.roomStatus);
 
                 tableHtml += `
                     <tr>
@@ -340,7 +356,7 @@
                         <td>${room.customerName}</td>
                         <td>${new Date(room.checkInDate).toLocaleString('vi-VN')}</td>
                         <td class="${countdownClass}">${hours}h ${minutes}m</td>
-                        <td>${room.roomStatus}</td>
+                        <td>${roomStatusText}</td>
                         <td>${statusBadge}</td>
                     </tr>
                 `;
@@ -362,7 +378,7 @@
                 method: 'POST',
                 success: function(response) {
                     if (response.success) {
-                        addLog(response.message + ` (${response.reservedRoomCount} phòng RESERVED)`, 'success');
+                        addLog(response.message + ` (${response.reservedRoomCount} phòng đã đặt)`, 'success');
                         
                         // Reload data after 2 seconds
                         setTimeout(loadUpcomingReservations, 2000);

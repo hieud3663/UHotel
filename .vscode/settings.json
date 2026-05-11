@@ -11,6 +11,7 @@
             "approve": true,
             "matchCommandLine": true
         },
-        "Resolve-Path": true
+        "Resolve-Path": true,
+        "dotnet build": true
     }
 }

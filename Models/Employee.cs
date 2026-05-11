@@ -56,9 +56,9 @@ namespace HotelManagement.Models
 
         [Required]
         [Column("position")]
-        [StringLength(15)]
+        [StringLength(20)]
         [Display(Name = "Vị trí")]
-        public string Position { get; set; } = "RECEPTIONIST";
+        public string Position { get; set; } = EmployeePositions.Receptionist;
 
         [Column("isActivate")]
         [StringLength(10)]
@@ -73,5 +73,31 @@ namespace HotelManagement.Models
         public virtual ICollection<RoomTask>? CreatedRoomTasks { get; set; }
         public virtual ICollection<RoomTask>? AssignedRoomTasks { get; set; }
         public virtual ICollection<RoomTaskHistory>? RoomTaskHistories { get; set; }
+    }
+
+    public static class EmployeePositions
+    {
+        public const string Receptionist = "RECEPTIONIST";
+        public const string Manager = "MANAGER";
+        public const string Cleaner = "CLEANER";
+        public const string Security = "SECURITY";
+        public const string Accountant = "ACCOUNTANT";
+        public const string Technician = "TECHNICIAN";
+
+        public static readonly string[] All = { Receptionist, Manager, Cleaner, Security, Accountant, Technician };
+
+        public static string ToDisplayText(string? position)
+        {
+            return position switch
+            {
+                Receptionist => "Lễ tân",
+                Manager => "Quản lý",
+                Cleaner => "Nhân viên vệ sinh",
+                Security => "Bảo vệ",
+                Accountant => "Kế toán",
+                Technician => "Kỹ thuật / Bảo trì",
+                _ => position ?? string.Empty
+            };
+        }
     }
 }

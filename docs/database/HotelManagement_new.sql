@@ -44,8 +44,8 @@ CREATE TABLE Employee (
 	CHECK (gender IN ('MALE', 'FEMALE')),
     idCardNumber NVARCHAR(12) NOT NULL,
     dob DATE NOT NULL,
-    position NVARCHAR(15) NOT NULL 
-	CHECK (position IN ('RECEPTIONIST', 'MANAGER')),
+    position NVARCHAR(20) NOT NULL 
+	CHECK (position IN ('RECEPTIONIST', 'MANAGER', 'CLEANER', 'SECURITY', 'ACCOUNTANT', 'TECHNICIAN')),
 	isActivate NVARCHAR(10) NOT NULL DEFAULT 'ACTIVATE' 
 	CHECK (isActivate IN ('ACTIVATE', 'DEACTIVATE')),
     --Kiểm tra tuổi >= 18 và <= 65
@@ -239,6 +239,8 @@ CREATE TABLE RoomTask (
     assignedEmployeeID NVARCHAR(15) NULL,
     createdByEmployeeID NVARCHAR(15) NOT NULL,
     createdAt DATETIME NOT NULL DEFAULT GETDATE(),
+    dueAt DATETIME NULL,
+    slaMinutes INT NULL CHECK (slaMinutes IS NULL OR slaMinutes > 0),
     startedAt DATETIME NULL,
     completedAt DATETIME NULL,
     cancelledAt DATETIME NULL,
@@ -621,7 +623,7 @@ CREATE OR ALTER PROCEDURE sp_InsertEmployee
     @gender NVARCHAR(6),
     @idCardNumber NVARCHAR(12),
     @dob DATE,
-    @position NVARCHAR(15)
+    @position NVARCHAR(20)
 AS
 BEGIN
     INSERT INTO Employee (employeeID, fullName, phoneNumber, email, address, gender, idCardNumber, dob, position, isActivate)
@@ -639,7 +641,7 @@ CREATE OR ALTER PROCEDURE sp_UpdateEmployee
     @gender NVARCHAR(6),
     @idCardNumber NVARCHAR(12),
     @dob DATE,
-    @position NVARCHAR(15),
+    @position NVARCHAR(20),
     @isActivate NVARCHAR(10)
 AS
 BEGIN
@@ -2059,8 +2061,8 @@ VALUES
     ('EMP-000001', N'Đặng Ngọc Hiếu', '0912345678', 'hieud@gmail.com', N'123 Ho Chi Minh', 'MALE', '001099012345', '2005-01-17', 'MANAGER'),
     ('EMP-000002', N'Nguyễn Văn A', '0912345679', 'nguyenvana@gmail.com', N'456 Ho Chi Minh', 'MALE', '001099012346', '2005-01-17', 'MANAGER'),
     ('EMP-000003', N'Phạm Thị C', '0912345680', 'phamthic@gmail.com', N'123 Ho Chi Minh', 'FEMALE', '001099012347', '2000-03-25', 'RECEPTIONIST'),
-    ('EMP-000004', N'Trần Văn C', '0912345681', 'tranvanc@gmail.com', N'234 Ho Chi Minh', 'MALE', '001099012348', '1999-05-30', 'RECEPTIONIST'),
-    ('EMP-000005', N'Phạm Thị D', '0912345682', 'phamthid@gmail.com', N'567 Ho Chi Minh', 'FEMALE', '001099012349', '1998-08-15', 'RECEPTIONIST')
+    ('EMP-000004', N'Trần Văn C', '0912345681', 'tranvanc@gmail.com', N'234 Ho Chi Minh', 'MALE', '001099012348', '1999-05-30', 'CLEANER'),
+    ('EMP-000005', N'Phạm Thị D', '0912345682', 'phamthid@gmail.com', N'567 Ho Chi Minh', 'FEMALE', '001099012349', '1998-08-15', 'TECHNICIAN')
 GO
 
 
@@ -2304,11 +2306,13 @@ GO
 ----------------------------------------------------------------------------------
 
 --=======================================================================
--- STORED PROCEDURES MỚI CHO LUỒNG THANH TOÁN
+-- STORED PROCEDURES THAM KHẢO CHO MODULE BẢO TRÌ & DỌN PHÒNG
 --=======================================================================
+-- Ứng dụng MVC hiện tại xử lý module Bảo trì & Dọn phòng bằng Entity Framework Core trực tiếp.
+-- Các stored procedure RoomTask bên dưới được giữ lại để tham khảo/đối chiếu nghiệp vụ và không phải luồng chính đang được controller gọi.
 
 -------------------------------------
--- SP 1: TRẢ PHÒNG RỒI THANH TOÁN (Checkout Then Pay)
+-- SP 1: TẠO CÔNG VIỆC PHÒNG (THAM KHẢO)
 -------------------------------------
 CREATE OR ALTER PROCEDURE sp_CreateRoomTask
     @roomID NVARCHAR(15),

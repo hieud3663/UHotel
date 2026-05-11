@@ -16,8 +16,15 @@
                 <i class="fas fa-clipboard-list me-2"></i>Thông tin dọn phòng
             </div>
             <div class="card-body-modern">
-                <form asp-action="CreateCleaningTask" method="post">
+                <form asp-action="CreateCleaningTask" method="post" onsubmit="return confirm('Xác nhận tạo yêu cầu dọn phòng và cập nhật trạng thái phòng?');">
                     <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+                    @if (ViewBag.RoomStatusWarning != null)
+                    {
+                        <div class="alert alert-warning">
+                            <i class="fas fa-triangle-exclamation"></i> @ViewBag.RoomStatusWarning
+                        </div>
+                    }
+                    <input type="hidden" name="forceCreate" value="@(ViewBag.RequireForceCreate == true ? "true" : "false")" />
 
                     <div class="mb-4">
                         <label asp-for="RoomID" class="form-label-modern">
@@ -46,6 +53,14 @@
                     </div>
 
                     <div class="mb-4">
+                        <label asp-for="DueAt" class="form-label-modern">
+                            <i class="fas fa-calendar-clock"></i> Hạn xử lý
+                        </label>
+                        <input asp-for="DueAt" type="datetime-local" class="form-control form-control-modern" value="@(Model.DueAt?.ToString("yyyy-MM-ddTHH:mm"))" />
+                        <span asp-validation-for="DueAt" class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-4">
                         <label asp-for="Description" class="form-label-modern">
                             <i class="fas fa-align-left"></i> Mô tả
                         </label>
@@ -60,7 +75,7 @@
 
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-success-modern">
-                            <i class="fas fa-save"></i> Tạo yêu cầu
+                            <i class="fas fa-save"></i> @(ViewBag.RequireForceCreate == true ? "Vẫn tạo yêu cầu" : "Tạo yêu cầu")
                         </button>
                         <a asp-action="Index" class="btn btn-secondary">
                             <i class="fas fa-times"></i> Hủy

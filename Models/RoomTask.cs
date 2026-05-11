@@ -82,6 +82,14 @@ namespace HotelManagement.Models
         [Display(Name = "Ghi chú")]
         public string? Note { get; set; }
 
+        [Column("dueAt")]
+        [Display(Name = "Hạn xử lý")]
+        public DateTime? DueAt { get; set; }
+
+        [Column("slaMinutes")]
+        [Display(Name = "SLA dự kiến (phút)")]
+        public int? SlaMinutes { get; set; }
+
         [ForeignKey("RoomID")]
         public virtual Room? Room { get; set; }
 

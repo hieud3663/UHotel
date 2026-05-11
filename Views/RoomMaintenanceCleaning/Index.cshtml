@@ -1,9 +1,14 @@
-@model HotelManagement.Models.PagedList<HotelManagement.Models.RoomTask>
+@model HotelManagement.Models.ViewModels.RoomTaskIndexViewModel
 @using HotelManagement.Models
 @using Microsoft.AspNetCore.Html
 
 @{
     ViewData["Title"] = "Bảo trì và dọn phòng";
+    var tasks = Model.Tasks;
+    var summary = Model.Summary;
+    var now = DateTime.UtcNow.AddHours(7);
+    var role = Context.Session.GetString("Role");
+    var canManage = role == "MANAGER" || role == "ADMIN";
 }
 
 <div class="page-header fade-in-up">
@@ -19,7 +24,7 @@
         <div class="stats-card fade-in-up">
             <div class="stats-icon bg-warning"><i class="fas fa-clock"></i></div>
             <div class="stats-content">
-                <h3>@Model.Count(t => t.Status == RoomTaskStatuses.Pending)</h3>
+                <h3>@summary.PendingCount</h3>
                 <p>Chờ xử lý</p>
             </div>
         </div>
@@ -28,7 +33,7 @@
         <div class="stats-card fade-in-up" style="animation-delay: 0.05s">
             <div class="stats-icon bg-info"><i class="fas fa-user-check"></i></div>
             <div class="stats-content">
-                <h3>@Model.Count(t => t.Status == RoomTaskStatuses.Assigned)</h3>
+                <h3>@summary.AssignedCount</h3>
                 <p>Đã phân công</p>
             </div>
         </div>
@@ -37,7 +42,7 @@
         <div class="stats-card fade-in-up" style="animation-delay: 0.1s">
             <div class="stats-icon bg-primary"><i class="fas fa-spinner"></i></div>
             <div class="stats-content">
-                <h3>@Model.Count(t => t.Status == RoomTaskStatuses.InProgress)</h3>
+                <h3>@summary.InProgressCount</h3>
                 <p>Đang thực hiện</p>
             </div>
         </div>
@@ -46,8 +51,38 @@
         <div class="stats-card fade-in-up" style="animation-delay: 0.15s">
             <div class="stats-icon bg-success"><i class="fas fa-check"></i></div>
             <div class="stats-content">
-                <h3>@Model.Count(t => t.Status == RoomTaskStatuses.Completed)</h3>
+                <h3>@summary.CompletedCount</h3>
                 <p>Hoàn thành</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="stats-card fade-in-up">
+            <div class="stats-icon bg-danger"><i class="fas fa-triangle-exclamation"></i></div>
+            <div class="stats-content">
+                <h3>@summary.OverdueCount</h3>
+                <p>Quá hạn</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stats-card fade-in-up" style="animation-delay: 0.05s">
+            <div class="stats-icon bg-danger"><i class="fas fa-bolt"></i></div>
+            <div class="stats-content">
+                <h3>@summary.UrgentCount</h3>
+                <p>Khẩn cấp</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stats-card fade-in-up" style="animation-delay: 0.1s">
+            <div class="stats-icon bg-secondary"><i class="fas fa-ban"></i></div>
+            <div class="stats-content">
+                <h3>@summary.CancelledCount</h3>
+                <p>Đã hủy</p>
             </div>
         </div>
     </div>
@@ -63,6 +98,12 @@
             <a asp-action="CreateMaintenanceTask" class="btn btn-warning-modern btn-sm">
                 <i class="fas fa-tools"></i> Tạo bảo trì
             </a>
+            @if (canManage)
+            {
+                <a asp-action="Report" class="btn btn-info-modern btn-sm">
+                    <i class="fas fa-chart-column"></i> Báo cáo
+                </a>
+            }
         </div>
     </div>
     <div class="card-body-modern">
@@ -103,6 +144,12 @@
                 <label class="form-label-modern">Đến ngày</label>
                 <input type="date" name="toDate" value="@ViewBag.ToDate" class="form-control form-control-modern" />
             </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" name="overdueOnly" value="true" id="overdueOnly" @(ViewBag.OverdueOnly == true ? "checked" : "") />
+                    <label class="form-check-label" for="overdueOnly">Chỉ quá hạn</label>
+                </div>
+            </div>
             <div class="col-12 d-flex gap-2">
                 <button type="submit" class="btn btn-primary-modern">
                     <i class="fas fa-search"></i> Lọc
@@ -134,25 +181,27 @@
                         <th>Ưu tiên</th>
                         <th>Trạng thái</th>
                         <th>Phụ trách</th>
+                        <th>Hạn xử lý</th>
                         <th>Ngày tạo</th>
                         <th class="text-end">Thao tác</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @if (!Model.Any())
+                    @if (!tasks.Any())
                     {
                         <tr>
-                            <td colspan="9" class="text-center text-muted py-4">Chưa có công việc phù hợp</td>
+                            <td colspan="10" class="text-center text-muted py-4">Chưa có công việc phù hợp</td>
                         </tr>
                     }
                     else
                     {
-                        @foreach (var item in Model)
+                        @foreach (var item in tasks)
                         {
-                            var canAssignItem = (Context.Session.GetString("Role") == "MANAGER" || Context.Session.GetString("Role") == "ADMIN")
+                            var canAssignItem = canManage
                                 && (item.Status == RoomTaskStatuses.Pending || item.Status == RoomTaskStatuses.Assigned);
+                            var isOverdue = item.DueAt.HasValue && item.DueAt.Value < now && RoomTaskStatuses.OpenStatuses.Contains(item.Status);
 
-                            <tr>
+                            <tr class="@(isOverdue ? "table-danger" : "")">
                                 <td><strong class="text-primary">@item.RoomTaskID</strong></td>
                                 <td>@item.RoomID</td>
                                 <td>@TaskTypeText(item.TaskType)</td>
@@ -160,6 +209,20 @@
                                 <td>@PriorityBadge(item.Priority)</td>
                                 <td>@StatusBadge(item.Status)</td>
                                 <td>@(item.AssignedEmployee?.FullName ?? "Chưa phân công")</td>
+                                <td>
+                                    @if (item.DueAt.HasValue)
+                                    {
+                                        <span class="@(isOverdue ? "text-danger fw-bold" : "")">@item.DueAt.Value.ToString("dd/MM/yyyy HH:mm")</span>
+                                        @if (isOverdue)
+                                        {
+                                            <div class="small text-danger"><i class="fas fa-triangle-exclamation"></i> Quá hạn</div>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">Chưa đặt</span>
+                                    }
+                                </td>
                                 <td>@item.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
                                 <td class="text-end">
                                     <a asp-action="Details" asp-route-id="@item.RoomTaskID" class="btn btn-info-modern btn-sm" title="Xem chi tiết">
@@ -181,14 +244,14 @@
     </div>
 </div>
 
-@if (Model.TotalPages > 1)
+@if (tasks.TotalPages > 1)
 {
     <nav class="mt-4">
         <ul class="pagination justify-content-center">
-            @for (var i = 1; i <= Model.TotalPages; i++)
+            @for (var i = 1; i <= tasks.TotalPages; i++)
             {
-                <li class="page-item @(i == Model.CurrentPage ? "active" : "")">
-                    <a class="page-link" asp-action="Index" asp-route-page="@i" asp-route-searchRoom="@ViewBag.SearchRoom" asp-route-taskType="@ViewBag.TaskType" asp-route-status="@ViewBag.Status" asp-route-priority="@ViewBag.Priority" asp-route-assignedEmployeeID="@ViewBag.AssignedEmployeeID" asp-route-fromDate="@ViewBag.FromDate" asp-route-toDate="@ViewBag.ToDate">@i</a>
+                <li class="page-item @(i == tasks.CurrentPage ? "active" : "")">
+                    <a class="page-link" asp-action="Index" asp-route-page="@i" asp-route-searchRoom="@ViewBag.SearchRoom" asp-route-taskType="@ViewBag.TaskType" asp-route-status="@ViewBag.Status" asp-route-priority="@ViewBag.Priority" asp-route-assignedEmployeeID="@ViewBag.AssignedEmployeeID" asp-route-fromDate="@ViewBag.FromDate" asp-route-toDate="@ViewBag.ToDate" asp-route-overdueOnly="@ViewBag.OverdueOnly">@i</a>
                 </li>
             }
         </ul>

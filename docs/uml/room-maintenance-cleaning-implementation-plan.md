@@ -1,5 +1,7 @@
 # Kế hoạch triển khai module Quản lý bảo trì và dọn phòng
 
+> Quyết định kỹ thuật: module Bảo trì & Dọn phòng của ứng dụng MVC dùng Entity Framework Core trực tiếp cho các thao tác tạo, phân công, bắt đầu, hoàn thành và hủy công việc. Các stored procedure RoomTask trong SQL script chỉ giữ vai trò tham khảo/đối chiếu nghiệp vụ, không phải luồng chính đang được controller gọi.
+
 ## 1. Mục tiêu tài liệu
 
 Tài liệu này mô tả kế hoạch triển khai chi tiết cho module **Quản lý bảo trì và dọn phòng** đã được bổ sung vào bộ sơ đồ UML của hệ thống HotelManagement.
@@ -175,6 +177,8 @@ Bảng này lưu công việc dọn phòng/bảo trì.
 | `AssignedEmployeeId` | `string` | Không | Nhân viên được giao |
 | `CreatedByEmployeeId` | `string` | Có | Người tạo công việc |
 | `CreatedAt` | `datetime` | Có | Thời điểm tạo |
+| `DueAt` | `datetime` | Không | Hạn xử lý/SLA dự kiến |
+| `SlaMinutes` | `int` | Không | Số phút SLA dự kiến |
 | `StartedAt` | `datetime` | Không | Thời điểm bắt đầu |
 | `CompletedAt` | `datetime` | Không | Thời điểm hoàn thành |
 | `CancelledAt` | `datetime` | Không | Thời điểm hủy |
@@ -224,6 +228,8 @@ public class RoomTask
     public string? AssignedEmployeeId { get; set; }
     public string CreatedByEmployeeId { get; set; }
     public DateTime CreatedAt { get; set; }
+    public DateTime? DueAt { get; set; }
+    public int? SlaMinutes { get; set; }
     public DateTime? StartedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public DateTime? CancelledAt { get; set; }

@@ -1,0 +1,164 @@
+@model HotelManagement.Models.ViewModels.RoomTaskReportViewModel
+@using HotelManagement.Models
+
+@{
+    ViewData["Title"] = "Báo cáo bảo trì và dọn phòng";
+}
+
+<div class="page-header fade-in-up">
+    <h1><i class="fas fa-chart-column"></i> Báo cáo bảo trì và dọn phòng</h1>
+    <p>Tổng hợp công việc theo thời gian, nhân viên và phòng</p>
+</div>
+
+<div class="card-modern fade-in-up mb-4">
+    <div class="card-header-modern">
+        <i class="fas fa-filter me-2"></i>Bộ lọc báo cáo
+    </div>
+    <div class="card-body-modern">
+        <form asp-action="Report" method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label-modern">Từ ngày</label>
+                <input type="date" name="fromDate" value="@ViewBag.FromDate" class="form-control form-control-modern" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label-modern">Đến ngày</label>
+                <input type="date" name="toDate" value="@ViewBag.ToDate" class="form-control form-control-modern" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label-modern">Loại công việc</label>
+                <select name="taskType" class="form-select form-control-modern" asp-items="ViewBag.TaskTypes">
+                    <option value="">Tất cả</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end gap-2">
+                <button type="submit" class="btn btn-primary-modern">
+                    <i class="fas fa-search"></i> Xem báo cáo
+                </button>
+                <a asp-action="Index" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Quay lại
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-2">
+        <div class="stats-card fade-in-up">
+            <div class="stats-icon bg-primary"><i class="fas fa-list-check"></i></div>
+            <div class="stats-content"><h3>@Model.TotalTasks</h3><p>Tổng việc</p></div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="stats-card fade-in-up">
+            <div class="stats-icon bg-warning"><i class="fas fa-clock"></i></div>
+            <div class="stats-content"><h3>@Model.PendingTasks</h3><p>Chờ xử lý</p></div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="stats-card fade-in-up">
+            <div class="stats-icon bg-info"><i class="fas fa-spinner"></i></div>
+            <div class="stats-content"><h3>@Model.InProgressTasks</h3><p>Đang làm</p></div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="stats-card fade-in-up">
+            <div class="stats-icon bg-success"><i class="fas fa-check"></i></div>
+            <div class="stats-content"><h3>@Model.CompletedTasks</h3><p>Hoàn thành</p></div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="stats-card fade-in-up">
+            <div class="stats-icon bg-danger"><i class="fas fa-triangle-exclamation"></i></div>
+            <div class="stats-content"><h3>@Model.OverdueTasks</h3><p>Quá hạn</p></div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="stats-card fade-in-up">
+            <div class="stats-icon bg-secondary"><i class="fas fa-hourglass-half"></i></div>
+            <div class="stats-content"><h3>@Model.AverageProcessingHours.ToString("N1")</h3><p>Giờ TB</p></div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card-modern fade-in-up">
+            <div class="card-header-modern"><i class="fas fa-users me-2"></i>Theo nhân viên</div>
+            <div class="card-body-modern p-0">
+                <div class="table-responsive">
+                    <table class="table table-modern mb-0">
+                        <thead>
+                            <tr>
+                                <th>Nhân viên</th>
+                                <th>Tổng</th>
+                                <th>Hoàn thành</th>
+                                <th>Quá hạn</th>
+                                <th>Giờ TB</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (!Model.EmployeeItems.Any())
+                            {
+                                <tr><td colspan="5" class="text-center text-muted py-4">Chưa có dữ liệu phân công</td></tr>
+                            }
+                            else
+                            {
+                                @foreach (var item in Model.EmployeeItems)
+                                {
+                                    <tr>
+                                        <td>@item.EmployeeName</td>
+                                        <td>@item.TotalTasks</td>
+                                        <td>@item.CompletedTasks</td>
+                                        <td class="@(item.OverdueTasks > 0 ? "text-danger fw-bold" : "")">@item.OverdueTasks</td>
+                                        <td>@item.AverageProcessingHours.ToString("N1")</td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card-modern fade-in-up">
+            <div class="card-header-modern"><i class="fas fa-door-open me-2"></i>Theo phòng</div>
+            <div class="card-body-modern p-0">
+                <div class="table-responsive">
+                    <table class="table table-modern mb-0">
+                        <thead>
+                            <tr>
+                                <th>Phòng</th>
+                                <th>Tổng</th>
+                                <th>Dọn</th>
+                                <th>Bảo trì</th>
+                                <th>Quá hạn</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (!Model.RoomItems.Any())
+                            {
+                                <tr><td colspan="5" class="text-center text-muted py-4">Chưa có dữ liệu theo phòng</td></tr>
+                            }
+                            else
+                            {
+                                @foreach (var item in Model.RoomItems)
+                                {
+                                    <tr>
+                                        <td>@item.RoomID - @item.RoomName</td>
+                                        <td>@item.TotalTasks</td>
+                                        <td>@item.CleaningTasks</td>
+                                        <td>@item.MaintenanceTasks</td>
+                                        <td class="@(item.OverdueTasks > 0 ? "text-danger fw-bold" : "")">@item.OverdueTasks</td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -47,15 +47,7 @@
                             <label class="info-label">Vị trí</label>
                             <div class="info-value">
                                 @{
-                                    var positionText = Model.Position switch
-                                    {
-                                        "RECEPTIONIST" => "Lễ tân",
-                                        "MANAGER" => "Quản lý",
-                                        "CLEANER" => "Nhân viên vệ sinh",
-                                        "SECURITY" => "Bảo vệ",
-                                        "ACCOUNTANT" => "Kế toán",
-                                        _ => Model.Position
-                                    };
+                                    var positionText = EmployeePositions.ToDisplayText(Model.Position);
                                 }
                                 @positionText
                             </div>

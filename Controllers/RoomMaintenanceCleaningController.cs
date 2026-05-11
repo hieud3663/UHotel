@@ -1,5 +1,6 @@
 using HotelManagement.Data;
 using HotelManagement.Models;
+using HotelManagement.Models.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -38,57 +39,33 @@ namespace HotelManagement.Controllers
             string? assignedEmployeeID = null,
             DateTime? fromDate = null,
             DateTime? toDate = null,
+            bool overdueOnly = false,
             int page = 1,
             int pageSize = 10)
         {
             if (!CheckAuth()) return RedirectToAction("Login", "Auth");
 
-            var query = _context.RoomTasks
-                .Include(t => t.Room)
-                    .ThenInclude(r => r!.RoomCategory)
-                .Include(t => t.AssignedEmployee)
-                .Include(t => t.CreatedByEmployee)
-                .AsQueryable();
+            var query = BuildRoomTaskQuery(searchRoom, taskType, status, priority, assignedEmployeeID, fromDate, toDate, overdueOnly);
+            var now = DateTime.UtcNow.AddHours(7);
 
-            if (!string.IsNullOrWhiteSpace(searchRoom))
+            var summary = new RoomTaskSummaryViewModel
             {
-                query = query.Where(t => t.RoomID.Contains(searchRoom));
-            }
-
-            if (!string.IsNullOrWhiteSpace(taskType))
-            {
-                query = query.Where(t => t.TaskType == taskType);
-            }
-
-            if (!string.IsNullOrWhiteSpace(status))
-            {
-                query = query.Where(t => t.Status == status);
-            }
-
-            if (!string.IsNullOrWhiteSpace(priority))
-            {
-                query = query.Where(t => t.Priority == priority);
-            }
-
-            if (!string.IsNullOrWhiteSpace(assignedEmployeeID))
-            {
-                query = query.Where(t => t.AssignedEmployeeID == assignedEmployeeID);
-            }
-
-            if (fromDate.HasValue)
-            {
-                query = query.Where(t => t.CreatedAt.Date >= fromDate.Value.Date);
-            }
-
-            if (toDate.HasValue)
-            {
-                query = query.Where(t => t.CreatedAt.Date <= toDate.Value.Date);
-            }
+                PendingCount = await query.CountAsync(t => t.Status == RoomTaskStatuses.Pending),
+                AssignedCount = await query.CountAsync(t => t.Status == RoomTaskStatuses.Assigned),
+                InProgressCount = await query.CountAsync(t => t.Status == RoomTaskStatuses.InProgress),
+                CompletedCount = await query.CountAsync(t => t.Status == RoomTaskStatuses.Completed),
+                CancelledCount = await query.CountAsync(t => t.Status == RoomTaskStatuses.Cancelled),
+                UrgentCount = await query.CountAsync(t => t.Priority == RoomTaskPriorities.Urgent),
+                OverdueCount = await query.CountAsync(t => t.DueAt.HasValue && t.DueAt.Value < now && RoomTaskStatuses.OpenStatuses.Contains(t.Status))
+            };
 
             query = query
                 .OrderBy(t => t.Status == RoomTaskStatuses.Completed || t.Status == RoomTaskStatuses.Cancelled)
+                .ThenByDescending(t => t.DueAt.HasValue && t.DueAt.Value < now && RoomTaskStatuses.OpenStatuses.Contains(t.Status))
                 .ThenByDescending(t => t.Priority == RoomTaskPriorities.Urgent)
                 .ThenByDescending(t => t.Priority == RoomTaskPriorities.High)
+                .ThenBy(t => t.DueAt == null)
+                .ThenBy(t => t.DueAt)
                 .ThenByDescending(t => t.CreatedAt);
 
             await LoadFilterData(assignedEmployeeID);
@@ -99,9 +76,14 @@ namespace HotelManagement.Controllers
             ViewBag.AssignedEmployeeID = assignedEmployeeID;
             ViewBag.FromDate = fromDate?.ToString("yyyy-MM-dd");
             ViewBag.ToDate = toDate?.ToString("yyyy-MM-dd");
+            ViewBag.OverdueOnly = overdueOnly;
             ViewBag.PageSize = pageSize;
 
-            return View(await PagedList<RoomTask>.CreateAsync(query, page, pageSize));
+            return View(new RoomTaskIndexViewModel
+            {
+                Tasks = await PagedList<RoomTask>.CreateAsync(query, page, pageSize),
+                Summary = summary
+            });
         }
 
         public async Task<IActionResult> Details(string id)
@@ -131,19 +113,22 @@ namespace HotelManagement.Controllers
 
             await LoadFormData(roomID);
 
-            return View(new RoomTask
+            var roomTask = new RoomTask
             {
                 RoomID = roomID ?? string.Empty,
                 TaskType = RoomTaskTypes.Cleaning,
                 Priority = RoomTaskPriorities.Normal,
                 Title = "Dọn phòng",
                 CreatedAt = DateTime.UtcNow.AddHours(7)
-            });
+            };
+            ApplyDefaultDueAt(roomTask);
+
+            return View(roomTask);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CreateCleaningTask(RoomTask roomTask)
+        public async Task<IActionResult> CreateCleaningTask(RoomTask roomTask, bool forceCreate = false)
         {
             if (!CheckAuth()) return RedirectToAction("Login", "Auth");
 
@@ -160,7 +145,17 @@ namespace HotelManagement.Controllers
                 roomTask.Status = RoomTaskStatuses.Pending;
                 roomTask.CreatedByEmployeeID = CurrentEmployeeID ?? string.Empty;
                 roomTask.CreatedAt = DateTime.UtcNow.AddHours(7);
+                ApplyDefaultDueAt(roomTask);
                 ClearServerManagedRoomTaskModelState();
+
+                var room = await _context.Rooms.FirstOrDefaultAsync(r => r.RoomID == roomTask.RoomID && r.IsActivate == "ACTIVATE");
+                if (room != null && !ValidateRoomStatusForTask(room, roomTask.TaskType, forceCreate))
+                {
+                    LogModelStateErrors(nameof(CreateCleaningTask), roomTask);
+                    await LoadFormData(roomTask.RoomID);
+                    ViewBag.RequireForceCreate = true;
+                    return View(roomTask);
+                }
 
                 if (!await ValidateRoomTask(roomTask))
                 {
@@ -197,19 +192,22 @@ namespace HotelManagement.Controllers
 
             await LoadFormData(roomID);
 
-            return View(new RoomTask
+            var roomTask = new RoomTask
             {
                 RoomID = roomID ?? string.Empty,
                 TaskType = RoomTaskTypes.Maintenance,
                 Priority = RoomTaskPriorities.High,
                 Title = "Bảo trì phòng",
                 CreatedAt = DateTime.UtcNow.AddHours(7)
-            });
+            };
+            ApplyDefaultDueAt(roomTask);
+
+            return View(roomTask);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CreateMaintenanceTask(RoomTask roomTask)
+        public async Task<IActionResult> CreateMaintenanceTask(RoomTask roomTask, bool forceCreate = false)
         {
             if (!CheckAuth()) return RedirectToAction("Login", "Auth");
 
@@ -226,7 +224,17 @@ namespace HotelManagement.Controllers
                 roomTask.Status = RoomTaskStatuses.Pending;
                 roomTask.CreatedByEmployeeID = CurrentEmployeeID ?? string.Empty;
                 roomTask.CreatedAt = DateTime.UtcNow.AddHours(7);
+                ApplyDefaultDueAt(roomTask);
                 ClearServerManagedRoomTaskModelState();
+
+                var room = await _context.Rooms.FirstOrDefaultAsync(r => r.RoomID == roomTask.RoomID && r.IsActivate == "ACTIVATE");
+                if (room != null && !ValidateRoomStatusForTask(room, roomTask.TaskType, forceCreate))
+                {
+                    LogModelStateErrors(nameof(CreateMaintenanceTask), roomTask);
+                    await LoadFormData(roomTask.RoomID);
+                    ViewBag.RequireForceCreate = true;
+                    return View(roomTask);
+                }
 
                 if (!await ValidateRoomTask(roomTask))
                 {
@@ -278,7 +286,7 @@ namespace HotelManagement.Controllers
                 return RedirectToAction(nameof(Details), new { id });
             }
 
-            await LoadEmployeeData(roomTask.AssignedEmployeeID);
+            await LoadEmployeeData(roomTask.TaskType, roomTask.AssignedEmployeeID);
             return View(roomTask);
         }
 
@@ -447,6 +455,7 @@ namespace HotelManagement.Controllers
                         CreatedByEmployeeID = CurrentEmployeeID ?? string.Empty,
                         CreatedAt = DateTime.UtcNow.AddHours(7)
                     };
+                    ApplyDefaultDueAt(cleaningTask);
 
                     _context.RoomTasks.Add(cleaningTask);
                     await AddHistory(cleaningTask.RoomTaskID, null, RoomTaskStatuses.Pending, "Tạo yêu cầu dọn phòng sau bảo trì");
@@ -504,6 +513,74 @@ namespace HotelManagement.Controllers
             return RedirectToAction(nameof(Details), new { id });
         }
 
+        public async Task<IActionResult> Report(DateTime? fromDate = null, DateTime? toDate = null, string? taskType = null)
+        {
+            if (!CheckAuth()) return RedirectToAction("Login", "Auth");
+            if (!IsManagerOrAdmin()) return Forbid();
+
+            var now = DateTime.UtcNow.AddHours(7);
+            var startDate = fromDate?.Date ?? now.Date.AddDays(-30);
+            var endDate = toDate?.Date ?? now.Date;
+
+            var query = BuildRoomTaskQuery(null, taskType, null, null, null, startDate, endDate, false);
+            var tasks = await query.AsNoTracking().ToListAsync();
+            var completedTasks = tasks
+                .Where(t => t.CompletedAt.HasValue)
+                .ToList();
+
+            var report = new RoomTaskReportViewModel
+            {
+                FromDate = startDate,
+                ToDate = endDate,
+                TaskType = taskType,
+                TotalTasks = tasks.Count,
+                PendingTasks = tasks.Count(t => t.Status == RoomTaskStatuses.Pending),
+                InProgressTasks = tasks.Count(t => t.Status == RoomTaskStatuses.InProgress),
+                CompletedTasks = tasks.Count(t => t.Status == RoomTaskStatuses.Completed),
+                CancelledTasks = tasks.Count(t => t.Status == RoomTaskStatuses.Cancelled),
+                OverdueTasks = tasks.Count(t => t.DueAt.HasValue && t.DueAt.Value < now && RoomTaskStatuses.OpenStatuses.Contains(t.Status)),
+                AverageProcessingHours = completedTasks.Any()
+                    ? completedTasks.Average(t => ((t.CompletedAt!.Value - (t.StartedAt ?? t.CreatedAt)).TotalHours))
+                    : 0,
+                EmployeeItems = tasks
+                    .Where(t => !string.IsNullOrWhiteSpace(t.AssignedEmployeeID))
+                    .GroupBy(t => new { t.AssignedEmployeeID, EmployeeName = t.AssignedEmployee?.FullName ?? t.AssignedEmployeeID })
+                    .Select(group => new RoomTaskEmployeeReportItem
+                    {
+                        EmployeeID = group.Key.AssignedEmployeeID!,
+                        EmployeeName = group.Key.EmployeeName ?? string.Empty,
+                        TotalTasks = group.Count(),
+                        CompletedTasks = group.Count(t => t.Status == RoomTaskStatuses.Completed),
+                        OverdueTasks = group.Count(t => t.DueAt.HasValue && t.DueAt.Value < now && RoomTaskStatuses.OpenStatuses.Contains(t.Status)),
+                        AverageProcessingHours = group.Where(t => t.CompletedAt.HasValue).Any()
+                            ? group.Where(t => t.CompletedAt.HasValue).Average(t => ((t.CompletedAt!.Value - (t.StartedAt ?? t.CreatedAt)).TotalHours))
+                            : 0
+                    })
+                    .OrderByDescending(item => item.TotalTasks)
+                    .ToList(),
+                RoomItems = tasks
+                    .GroupBy(t => new { t.RoomID, RoomName = t.Room?.RoomCategory?.RoomCategoryName ?? t.RoomID })
+                    .Select(group => new RoomTaskRoomReportItem
+                    {
+                        RoomID = group.Key.RoomID,
+                        RoomName = group.Key.RoomName,
+                        TotalTasks = group.Count(),
+                        CleaningTasks = group.Count(t => t.TaskType == RoomTaskTypes.Cleaning),
+                        MaintenanceTasks = group.Count(t => t.TaskType == RoomTaskTypes.Maintenance),
+                        OverdueTasks = group.Count(t => t.DueAt.HasValue && t.DueAt.Value < now && RoomTaskStatuses.OpenStatuses.Contains(t.Status))
+                    })
+                    .OrderByDescending(item => item.TotalTasks)
+                    .ToList()
+            };
+
+            await LoadFilterData();
+            ViewBag.FromDate = startDate.ToString("yyyy-MM-dd");
+            ViewBag.ToDate = endDate.ToString("yyyy-MM-dd");
+            ViewBag.TaskType = taskType;
+
+            return View(report);
+        }
+
         public async Task<IActionResult> History(string? roomID = null, string? employeeID = null, int page = 1, int pageSize = 10)
         {
             if (!CheckAuth()) return RedirectToAction("Login", "Auth");
@@ -532,6 +609,67 @@ namespace HotelManagement.Controllers
             ViewBag.PageSize = pageSize;
 
             return View(await PagedList<RoomTaskHistory>.CreateAsync(query, page, pageSize));
+        }
+
+        private IQueryable<RoomTask> BuildRoomTaskQuery(
+            string? searchRoom,
+            string? taskType,
+            string? status,
+            string? priority,
+            string? assignedEmployeeID,
+            DateTime? fromDate,
+            DateTime? toDate,
+            bool overdueOnly)
+        {
+            var now = DateTime.UtcNow.AddHours(7);
+            var query = _context.RoomTasks
+                .Include(t => t.Room)
+                    .ThenInclude(r => r!.RoomCategory)
+                .Include(t => t.CreatedByEmployee)
+                .Include(t => t.AssignedEmployee)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(searchRoom))
+            {
+                query = query.Where(t => t.RoomID.Contains(searchRoom) || t.RoomTaskID.Contains(searchRoom));
+            }
+
+            if (!string.IsNullOrWhiteSpace(taskType))
+            {
+                query = query.Where(t => t.TaskType == taskType);
+            }
+
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                query = query.Where(t => t.Status == status);
+            }
+
+            if (!string.IsNullOrWhiteSpace(priority))
+            {
+                query = query.Where(t => t.Priority == priority);
+            }
+
+            if (!string.IsNullOrWhiteSpace(assignedEmployeeID))
+            {
+                query = query.Where(t => t.AssignedEmployeeID == assignedEmployeeID);
+            }
+
+            if (fromDate.HasValue)
+            {
+                query = query.Where(t => t.CreatedAt.Date >= fromDate.Value.Date);
+            }
+
+            if (toDate.HasValue)
+            {
+                query = query.Where(t => t.CreatedAt.Date <= toDate.Value.Date);
+            }
+
+            if (overdueOnly)
+            {
+                query = query.Where(t => t.DueAt.HasValue && t.DueAt.Value < now && RoomTaskStatuses.OpenStatuses.Contains(t.Status));
+            }
+
+            return query;
         }
 
         private async Task<bool> ValidateRoomTask(RoomTask roomTask)
@@ -581,6 +719,64 @@ namespace HotelManagement.Controllers
                 roomTask.TaskType);
 
             return ModelState.IsValid;
+        }
+
+        private bool ValidateRoomStatusForTask(Room room, string taskType, bool forceCreate)
+        {
+            var status = room.RoomStatus;
+            var blockedStatuses = taskType == RoomTaskTypes.Cleaning
+                ? new[] { RoomOperationalStatuses.Maintenance, RoomOperationalStatuses.OutOfService }
+                : new[] { RoomOperationalStatuses.OutOfService };
+            var sensitiveStatuses = new[]
+            {
+                RoomOperationalStatuses.OnUse,
+                RoomOperationalStatuses.Reserved,
+                RoomOperationalStatuses.Overdue
+            };
+
+            if (blockedStatuses.Contains(status))
+            {
+                ModelState.AddModelError(string.Empty, $"Phòng {room.RoomID} đang ở trạng thái {GetRoomStatusText(status)}, không thể tạo yêu cầu {GetTaskTypeText(taskType).ToLower()}.");
+                return false;
+            }
+
+            if (sensitiveStatuses.Contains(status) && !forceCreate)
+            {
+                ModelState.AddModelError(string.Empty, $"Phòng {room.RoomID} hiện đang {GetRoomStatusText(status).ToLower()}. Việc tạo yêu cầu {GetTaskTypeText(taskType).ToLower()} sẽ thay đổi trạng thái phòng. Vui lòng xác nhận nếu vẫn muốn tiếp tục.");
+                ViewBag.RoomStatusWarning = $"Phòng {room.RoomID} hiện đang {GetRoomStatusText(status).ToLower()}. Hãy kiểm tra khách/đặt phòng liên quan trước khi tiếp tục.";
+                return false;
+            }
+
+            return true;
+        }
+
+        private void ApplyDefaultDueAt(RoomTask roomTask)
+        {
+            if (roomTask.DueAt.HasValue)
+            {
+                roomTask.SlaMinutes ??= Math.Max(1, (int)Math.Ceiling((roomTask.DueAt.Value - roomTask.CreatedAt).TotalMinutes));
+                return;
+            }
+
+            var slaMinutes = GetDefaultSlaMinutes(roomTask.TaskType, roomTask.Priority);
+            roomTask.SlaMinutes = slaMinutes;
+            roomTask.DueAt = roomTask.CreatedAt.AddMinutes(slaMinutes);
+        }
+
+        private static int GetDefaultSlaMinutes(string taskType, string priority)
+        {
+            return (taskType, priority) switch
+            {
+                (RoomTaskTypes.Cleaning, RoomTaskPriorities.Urgent) => 30,
+                (RoomTaskTypes.Cleaning, RoomTaskPriorities.High) => 60,
+                (RoomTaskTypes.Cleaning, RoomTaskPriorities.Low) => 240,
+                (RoomTaskTypes.Cleaning, _) => 120,
+                (RoomTaskTypes.Maintenance, RoomTaskPriorities.Urgent) => 120,
+                (RoomTaskTypes.Maintenance, RoomTaskPriorities.High) => 240,
+                (RoomTaskTypes.Maintenance, RoomTaskPriorities.Low) => 1440,
+                (RoomTaskTypes.Maintenance, _) => 480,
+                _ => 240
+            };
         }
 
         private async Task CreateRoomTask(RoomTask roomTask, string roomStatus, string historyNote)
@@ -762,22 +958,51 @@ namespace HotelManagement.Controllers
             ViewBag.Priorities = BuildPrioritySelectList();
         }
 
-        private async Task LoadEmployeeData(string? selectedEmployeeID = null)
+        private async Task LoadEmployeeData(string taskType, string? selectedEmployeeID = null)
         {
             var employees = await _context.Employees
                 .Where(e => e.IsActivate == "ACTIVATE")
                 .OrderBy(e => e.FullName)
                 .ToListAsync();
 
+            var matchedEmployees = employees
+                .Where(e => IsEmployeeSuitableForTask(e, taskType))
+                .ToList();
+
+            var employeeOptions = matchedEmployees.Any() ? matchedEmployees : employees;
+            if (!matchedEmployees.Any())
+            {
+                ViewBag.EmployeeFilterWarning = "Chưa tìm thấy nhân viên đúng nhóm, đang hiển thị toàn bộ nhân viên hoạt động.";
+            }
+
             ViewBag.Employees = new SelectList(
-                employees.Select(e => new
+                employeeOptions.Select(e => new
                 {
                     e.EmployeeID,
-                    DisplayName = $"{e.EmployeeID} - {e.FullName} ({e.Position})"
+                    DisplayName = $"{e.EmployeeID} - {e.FullName} ({EmployeePositions.ToDisplayText(e.Position)})"
                 }),
                 "EmployeeID",
                 "DisplayName",
                 selectedEmployeeID);
+        }
+
+        private static bool IsEmployeeSuitableForTask(Employee employee, string taskType)
+        {
+            var position = employee.Position?.ToLowerInvariant() ?? string.Empty;
+            var name = employee.FullName?.ToLowerInvariant() ?? string.Empty;
+            var text = $"{position} {name}";
+
+            return taskType switch
+            {
+                RoomTaskTypes.Cleaning => employee.Position == EmployeePositions.Cleaner || ContainsAny(text, "buồng", "phòng", "dọn", "housekeeping", "clean", "cleaner"),
+                RoomTaskTypes.Maintenance => employee.Position == EmployeePositions.Technician || ContainsAny(text, "kỹ thuật", "ky thuat", "bảo trì", "bao tri", "sửa", "sua", "maintenance", "technical"),
+                _ => true
+            };
+        }
+
+        private static bool ContainsAny(string value, params string[] keywords)
+        {
+            return keywords.Any(value.Contains);
         }
 
         private async Task LoadFilterData(string? selectedEmployeeID = null)
@@ -824,6 +1049,16 @@ namespace HotelManagement.Controllers
                 new { Value = RoomTaskPriorities.High, Text = "Cao" },
                 new { Value = RoomTaskPriorities.Urgent, Text = "Khẩn cấp" }
             }, "Value", "Text");
+        }
+
+        private static string GetTaskTypeText(string taskType)
+        {
+            return taskType switch
+            {
+                RoomTaskTypes.Cleaning => "Dọn phòng",
+                RoomTaskTypes.Maintenance => "Bảo trì",
+                _ => taskType
+            };
         }
 
         private static string GetRoomStatusText(string status)

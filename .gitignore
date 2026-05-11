@@ -136,3 +136,4 @@ __pycache__/
 CLAUDE.md
 .claude/
 AGENTS.md
+docs/database/UpdateEmployeePositionsForMaintenance.sql

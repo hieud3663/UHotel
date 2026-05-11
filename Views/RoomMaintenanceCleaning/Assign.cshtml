@@ -26,8 +26,16 @@
                         <td>@Model.RoomID</td>
                     </tr>
                     <tr>
+                        <th>Loại công việc:</th>
+                        <td>@(Model.TaskType == RoomTaskTypes.Cleaning ? "Dọn phòng" : "Bảo trì")</td>
+                    </tr>
+                    <tr>
                         <th>Tiêu đề:</th>
                         <td>@Model.Title</td>
+                    </tr>
+                    <tr>
+                        <th>Hạn xử lý:</th>
+                        <td>@(Model.DueAt?.ToString("dd/MM/yyyy HH:mm") ?? "Chưa đặt")</td>
                     </tr>
                     <tr>
                         <th>Nhân viên hiện tại:</th>
@@ -42,8 +50,15 @@
                 <i class="fas fa-user-check me-2"></i>Chọn nhân viên phụ trách
             </div>
             <div class="card-body-modern">
-                <form asp-action="Assign" method="post">
+                <form asp-action="Assign" method="post" onsubmit="return confirm('Xác nhận lưu phân công nhân viên cho công việc này?');">
                     <input type="hidden" name="id" value="@Model.RoomTaskID" />
+
+                    @if (ViewBag.EmployeeFilterWarning != null)
+                    {
+                        <div class="alert alert-warning">
+                            <i class="fas fa-triangle-exclamation"></i> @ViewBag.EmployeeFilterWarning
+                        </div>
+                    }
 
                     <div class="mb-4">
                         <label class="form-label-modern">

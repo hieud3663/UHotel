@@ -9,11 +9,15 @@
     var isInProgress = Model.Status == RoomTaskStatuses.InProgress;
     var isClosed = Model.Status == RoomTaskStatuses.Completed || Model.Status == RoomTaskStatuses.Cancelled;
     var canManage = Context.Session.GetString("Role") == "MANAGER" || Context.Session.GetString("Role") == "ADMIN";
+    var currentEmployeeID = Context.Session.GetString("EmployeeID");
     var hasAssignedEmployee = !string.IsNullOrWhiteSpace(Model.AssignedEmployeeID);
+    var canOperate = canManage || (!string.IsNullOrWhiteSpace(currentEmployeeID) && currentEmployeeID == Model.AssignedEmployeeID);
     var canAssign = canManage && (isPending || isAssigned);
-    var canStart = isAssigned && hasAssignedEmployee;
-    var canComplete = isInProgress;
+    var canStart = isAssigned && hasAssignedEmployee && canOperate;
+    var canComplete = isInProgress && canOperate;
     var canCancel = canManage && !isClosed;
+    var now = DateTime.UtcNow.AddHours(7);
+    var isOverdue = Model.DueAt.HasValue && Model.DueAt.Value < now && RoomTaskStatuses.OpenStatuses.Contains(Model.Status);
 }
 
 <div class="page-header fade-in-up">
@@ -69,6 +73,26 @@
                         <th>Ngày tạo:</th>
                         <td>@Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
                     </tr>
+                    @if (Model.DueAt.HasValue)
+                    {
+                        <tr>
+                            <th>Hạn xử lý:</th>
+                            <td>
+                                <span class="@(isOverdue ? "text-danger fw-bold" : "")">@Model.DueAt.Value.ToString("dd/MM/yyyy HH:mm")</span>
+                                @if (isOverdue)
+                                {
+                                    <span class="badge bg-danger ms-2">Quá hạn</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    @if (Model.SlaMinutes.HasValue)
+                    {
+                        <tr>
+                            <th>SLA dự kiến:</th>
+                            <td>@FormatSla(Model.SlaMinutes.Value)</td>
+                        </tr>
+                    }
                     @if (Model.StartedAt.HasValue)
                     {
                         <tr>
@@ -128,6 +152,12 @@
                             <i class="fas fa-user-plus"></i> Công việc chưa được phân công. Cần phân công nhân viên trước khi bắt đầu xử lý.
                         </div>
                     }
+                    else if (!canOperate)
+                    {
+                        <div class="alert alert-secondary mb-3">
+                            <i class="fas fa-eye"></i> Công việc này đã được phân công cho nhân viên khác. Bạn chỉ có quyền xem chi tiết.
+                        </div>
+                    }
                     else
                     {
                         <div class="alert alert-info mb-3">
@@ -145,7 +175,7 @@
 
                         @if (canStart)
                         {
-                            <form asp-action="Start" method="post">
+                            <form asp-action="Start" method="post" onsubmit="return confirm('Xác nhận bắt đầu xử lý công việc này?');">
                                 <input type="hidden" name="id" value="@Model.RoomTaskID" />
                                 <button type="submit" class="btn btn-primary-modern w-100">
                                     <i class="fas fa-play"></i> Bắt đầu xử lý
@@ -155,7 +185,7 @@
 
                         @if (canComplete)
                         {
-                            <form asp-action="Complete" method="post">
+                            <form asp-action="Complete" method="post" onsubmit="return confirm('Xác nhận hoàn thành công việc này?');">
                                 <input type="hidden" name="id" value="@Model.RoomTaskID" />
                                 <div class="mb-3">
                                     <label class="form-label-modern">Ghi chú hoàn thành</label>
@@ -254,4 +284,19 @@
     }
 
     private IHtmlContent StatusBadge(string status) => StatusDisplayHelper.RoomTaskStatusBadge(status);
+
+    private static string FormatSla(int minutes)
+    {
+        if (minutes >= 1440 && minutes % 1440 == 0)
+        {
+            return $"{minutes / 1440} ngày";
+        }
+
+        if (minutes >= 60 && minutes % 60 == 0)
+        {
+            return $"{minutes / 60} giờ";
+        }
+
+        return $"{minutes} phút";
+    }
 }

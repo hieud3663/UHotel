@@ -140,7 +140,7 @@ package "Lưu trú - Thanh toán - Phiếu" {
 }
 
 package "Vận hành phòng" {
-  class RoomTask <<planned>> {
+  class RoomTask {
     +string RoomTaskID
     +string RoomID
     +string TaskType
@@ -149,7 +149,7 @@ package "Vận hành phòng" {
     +string AssignedEmployeeID
   }
 
-  class RoomTaskHistory <<planned>> {
+  class RoomTaskHistory {
     +string RoomTaskHistoryID
     +string RoomTaskID
     +string OldStatus

@@ -826,7 +826,183 @@ BEGIN
 END;
 GO
 
--- Tạo procedure đơn giản để đặt phòng nhanh với thông tin cơ bản
+-- Cập nhật lịch/phòng cho phiếu đặt phòng từ màn hình calendar.
+-- Chỉ cho phép điều chỉnh phiếu còn hoạt động, chưa check-in/check-out và thời gian mới không trùng lịch.
+-- Khi đổi sang loại phòng khác, procedure nhận snapshot giá đã được server xác nhận để tránh checkout sai đơn giá.
+CREATE OR ALTER PROCEDURE sp_UpdateReservationSchedule
+    @reservationFormID NVARCHAR(15),
+    @roomID NVARCHAR(15),
+    @checkInDate DATETIME,
+    @checkOutDate DATETIME,
+    @employeeID NVARCHAR(15),
+    @priceUnit NVARCHAR(15),
+    @unitPrice MONEY,
+    @roomBookingDeposit FLOAT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        IF @reservationFormID IS NULL OR @roomID IS NULL OR @checkInDate IS NULL OR @checkOutDate IS NULL OR @employeeID IS NULL
+           OR @priceUnit IS NULL OR @unitPrice IS NULL OR @roomBookingDeposit IS NULL
+        BEGIN
+            RAISERROR(N'Thông tin cập nhật lịch đặt phòng không được để trống.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN -1;
+        END
+
+        IF @checkInDate <= GETDATE()
+        BEGIN
+            RAISERROR(N'Thời gian nhận phòng mới phải sau thời điểm hiện tại.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN -1;
+        END
+
+        IF @checkOutDate <= @checkInDate
+        BEGIN
+            RAISERROR(N'Thời gian trả phòng mới phải sau thời gian nhận phòng.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN -1;
+        END
+
+        IF @priceUnit NOT IN ('DAY', 'HOUR')
+        BEGIN
+            RAISERROR(N'Đơn vị giá không hợp lệ. Chỉ chấp nhận DAY hoặc HOUR.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN -1;
+        END
+
+        IF @unitPrice <= 0
+        BEGIN
+            RAISERROR(N'Đơn giá phòng phải lớn hơn 0.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN -1;
+        END
+
+        IF @roomBookingDeposit < 0
+        BEGIN
+            RAISERROR(N'Tiền đặt cọc không được âm.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN -1;
+        END
+
+        IF NOT EXISTS (SELECT 1 FROM ReservationForm WHERE reservationFormID = @reservationFormID AND isActivate = 'ACTIVATE')
+        BEGIN
+            RAISERROR(N'Phiếu đặt phòng không tồn tại hoặc đã bị hủy.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN -1;
+        END
+
+        IF EXISTS (SELECT 1 FROM HistoryCheckin WHERE reservationFormID = @reservationFormID)
+           OR EXISTS (SELECT 1 FROM HistoryCheckOut WHERE reservationFormID = @reservationFormID)
+        BEGIN
+            RAISERROR(N'Không thể điều chỉnh phiếu đã check-in hoặc check-out.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN -1;
+        END
+
+        DECLARE @newRoomCategoryID NVARCHAR(15);
+        SELECT @newRoomCategoryID = roomCategoryID
+        FROM Room
+        WHERE roomID = @roomID
+          AND isActivate = 'ACTIVATE'
+          AND roomStatus NOT IN ('UNAVAILABLE', 'ON_USE', 'OVERDUE', 'MAINTENANCE', 'OUT_OF_SERVICE');
+
+        IF @newRoomCategoryID IS NULL
+        BEGIN
+            RAISERROR(N'Phòng không tồn tại hoặc đang ở trạng thái không thể đặt.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN -1;
+        END
+
+        IF NOT EXISTS (
+            SELECT 1
+            FROM Pricing
+            WHERE roomCategoryID = @newRoomCategoryID
+              AND priceUnit = @priceUnit
+              AND price = @unitPrice
+              AND price > 0
+        )
+        BEGIN
+            RAISERROR(N'Đơn giá xác nhận không khớp với bảng giá hiện tại của loại phòng mới.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN -1;
+        END
+
+        IF NOT EXISTS (SELECT 1 FROM Employee WHERE employeeID = @employeeID AND isActivate = 'ACTIVATE')
+        BEGIN
+            RAISERROR(N'Nhân viên không tồn tại hoặc không hoạt động.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN -1;
+        END
+
+        IF EXISTS (
+            SELECT 1
+            FROM ReservationForm rf
+            OUTER APPLY (
+                SELECT MAX(ho.checkOutDate) AS checkOutDateActual
+                FROM HistoryCheckOut ho
+                WHERE ho.reservationFormID = rf.reservationFormID
+            ) ho
+            WHERE rf.roomID = @roomID
+              AND rf.reservationFormID <> @reservationFormID
+              AND rf.isActivate = 'ACTIVATE'
+              AND @checkInDate < ISNULL(ho.checkOutDateActual, rf.checkOutDate)
+              AND @checkOutDate > rf.checkInDate
+        )
+        BEGIN
+            RAISERROR(N'Phòng đã được đặt trong khoảng thời gian này.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN -1;
+        END
+
+        IF EXISTS (
+            SELECT 1
+            FROM RoomTask rt
+            WHERE rt.roomID = @roomID
+              AND rt.taskType = 'MAINTENANCE'
+              AND rt.status IN ('PENDING', 'ASSIGNED', 'IN_PROGRESS')
+        )
+        BEGIN
+            RAISERROR(N'Phòng đang có yêu cầu bảo trì mở, không thể điều chỉnh lịch đặt phòng.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN -1;
+        END
+
+        UPDATE ReservationForm
+        SET roomID = @roomID,
+            checkInDate = @checkInDate,
+            checkOutDate = @checkOutDate,
+            employeeID = @employeeID,
+            priceUnit = @priceUnit,
+            unitPrice = @unitPrice,
+            roomBookingDeposit = @roomBookingDeposit
+        WHERE reservationFormID = @reservationFormID;
+
+        DECLARE @roomChangeHistoryID NVARCHAR(15) = dbo.fn_GenerateID('RCH-', 'RoomChangeHistory', 'roomChangeHistoryID', 6);
+
+        INSERT INTO RoomChangeHistory (roomChangeHistoryID, dateChanged, roomID, reservationFormID, employeeID)
+        VALUES (@roomChangeHistoryID, GETDATE(), @roomID, @reservationFormID, @employeeID);
+
+        COMMIT TRANSACTION;
+        RETURN 0;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
+        DECLARE @ErrorState INT = ERROR_STATE();
+
+        RAISERROR(@ErrorMessage, @ErrorSeverity, @ErrorState);
+        RETURN -1;
+    END CATCH
+END;
+GO
+
+-- Tạo procedure đơn giản để đặt phòng nhanh với thông tin cơ bảncó
 CREATE OR ALTER PROCEDURE sp_QuickReservation
     @checkInDate DATETIME,
     @daysStay INT,

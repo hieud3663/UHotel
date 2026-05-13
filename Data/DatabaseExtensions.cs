@@ -178,6 +178,38 @@ namespace HotelManagement.Data
         }
 
         /// <summary>
+        /// Execute stored procedure sp_UpdateReservationSchedule
+        /// Cập nhật lịch/phòng và snapshot giá cho phiếu đặt phòng chưa check-in, có kiểm tra trùng lịch trong SQL.
+        /// </summary>
+        public static async Task UpdateReservationScheduleSP(
+            this HotelManagementContext context,
+            string reservationFormID,
+            string roomID,
+            DateTime checkInDate,
+            DateTime checkOutDate,
+            string employeeID,
+            string priceUnit,
+            decimal unitPrice,
+            decimal roomBookingDeposit)
+        {
+            var parameters = new[]
+            {
+                new SqlParameter("@reservationFormID", reservationFormID),
+                new SqlParameter("@roomID", roomID),
+                new SqlParameter("@checkInDate", checkInDate),
+                new SqlParameter("@checkOutDate", checkOutDate),
+                new SqlParameter("@employeeID", employeeID),
+                new SqlParameter("@priceUnit", priceUnit),
+                new SqlParameter("@unitPrice", unitPrice),
+                new SqlParameter("@roomBookingDeposit", roomBookingDeposit)
+            };
+
+            await context.Database.ExecuteSqlRawAsync(
+                "EXEC sp_UpdateReservationSchedule @reservationFormID, @roomID, @checkInDate, @checkOutDate, @employeeID, @priceUnit, @unitPrice, @roomBookingDeposit",
+                parameters);
+        }
+
+        /// <summary>
         /// Execute stored procedure sp_QuickCheckin
         /// Automatically generates historyCheckInID
         /// </summary>

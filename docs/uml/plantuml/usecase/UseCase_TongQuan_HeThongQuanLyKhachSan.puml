@@ -3,7 +3,6 @@ left to right direction
 skinparam shadowing false
 title Sơ đồ ca sử dụng tổng quan - Hệ thống quản lý khách sạn
 
-actor "Khách hàng" as Customer
 actor "Nhân viên/Lễ tân" as Staff
 actor "Quản lý" as Manager
 actor "Nhân viên buồng phòng" as Housekeeper
@@ -64,13 +63,6 @@ Housekeeper --> UC_MaintenanceCleaning
 Technician --> UC_MaintenanceCleaning
 Admin --> UC_Account
 Admin --> UC_Report
-Customer --> UC_Reservation
-Customer --> UC_CheckIn
-Customer --> UC_RoomService
-Customer --> UC_CheckOut
-Customer --> UC_Payment
-Customer --> UC_Invoice
-Customer --> UC_Receipt
 Gateway --> UC_Webhook
 Background --> UC_StatusUpdate
 

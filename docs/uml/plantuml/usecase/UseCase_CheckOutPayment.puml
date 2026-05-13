@@ -3,7 +3,6 @@ left to right direction
 skinparam shadowing false
 title Sơ đồ ca sử dụng chi tiết - Trả phòng và thanh toán
 
-actor "Khách hàng" as Customer
 actor "Nhân viên/Lễ tân" as Staff
 actor "Cổng thanh toán" as Gateway
 
@@ -23,12 +22,11 @@ rectangle "Trả phòng và thanh toán" {
   usecase "Giải phóng phòng" as UC_FreeRoom
 }
 
-Customer --> UC_Details
-Customer --> UC_Confirm
 Staff --> UC_Details
 Staff --> UC_Convert
 Staff --> UC_CheckoutThenPay
 Staff --> UC_PayThenCheckout
+Staff --> UC_Confirm
 Staff --> UC_ActualCheckout
 Gateway --> UC_Webhook
 

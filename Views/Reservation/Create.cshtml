@@ -459,6 +459,11 @@
     <script src="~/js/validation.js"></script>
     <script>
         let selectedRoomId = null;
+        const calendarPrefill = {
+            roomID: '@(Context.Request.Query["roomID"].ToString())',
+            checkInDate: '@(Context.Request.Query["checkInDate"].ToString())',
+            checkOutDate: '@(Context.Request.Query["checkOutDate"].ToString())'
+        };
 
         $('#priceUnitSelect').on('change', function() {
             @* const selectedOption = $(this).find('option:selected');
@@ -490,6 +495,7 @@
             
             // Set default datetime values
             setDefaultDates();
+            applyCalendarPrefill();
 
             // Load rooms on page load
             loadRoomGrid();
@@ -500,6 +506,7 @@
             // Load rooms when dates change
             $('#checkInDateFilter, #checkOutDateFilter').change(function () {
                 validateDates();
+                calculateDeposit();
             });
 
             // Duration input change - auto calculate checkout date
@@ -536,6 +543,22 @@
             setInterval(updateCountdowns, 1000);
             updateCountdowns();
         });
+
+        // Nhận dữ liệu phòng/ngày từ màn hình lịch đặt phòng nếu có.
+        function applyCalendarPrefill() {
+            if (calendarPrefill.checkInDate) {
+                $('#checkInDateFilter').val(calendarPrefill.checkInDate);
+            }
+
+            if (calendarPrefill.checkOutDate) {
+                $('#checkOutDateFilter').val(calendarPrefill.checkOutDate);
+            }
+
+            if (calendarPrefill.roomID) {
+                selectedRoomId = calendarPrefill.roomID;
+                $('#roomIdHidden').val(calendarPrefill.roomID);
+            }
+        }
 
         // Set current time to check-in input
         function setCurrentTimeCheckIn() {
@@ -585,6 +608,7 @@
         
             // Validate dates after setting
             validateDates();
+            calculateDeposit();
         }
 
         // Set default dates (today + 1 hour for check-in, tomorrow for check-out)
@@ -757,6 +781,13 @@
 
                         const isSelected = selectedRoomId === room.roomID;
                         
+                        if (isSelected) {
+                            $('#roomIdHidden').val(room.roomID);
+                            $('#selectedRoomText').text(`${room.roomID} - ${room.roomCategoryName}`);
+                            $('#selectedRoomDisplay').show();
+                            loadPricingOptions(room.roomCategoryID);
+                        }
+                        
                         // Format giá theo VNĐ
                         const hourPriceFormatted = room.hourPrice ? room.hourPrice.toLocaleString('vi-VN') : 'N/A';
                         const dayPriceFormatted = room.dayPrice ? room.dayPrice.toLocaleString('vi-VN') : 'N/A';
@@ -860,6 +891,9 @@
             $('#selectedRoomDisplay').hide();
             $('#priceUnitSelect').empty().append('<option value="">-- Chọn phòng trước --</option>');
             $('#depositSuggestion').text('---');
+            $('input[name="RoomBookingDeposit"]').val('');
+            $('#priceUnitHidden').val('');
+            $('#unitPriceHidden').val('');
         }
 
         // Load pricing options
@@ -895,25 +929,58 @@
             }
         }
 
-        // Calculate deposit suggestion (30% of room price)
+        // Calculate deposit suggestion (30% of estimated room charge)
         function calculateDeposit() {
-            var priceUnit = $('#priceUnitSelect option:selected');
-            var priceUnitValue = priceUnit.val();
-            var amount = priceUnit.data('amount');
+            var priceOption = $('#priceUnitSelect option:selected');
+            var priceUnitValue = priceOption.val();
+            var amount = priceOption.data('amount');
+            var roomId = $('#roomIdHidden').val();
+            var checkInDate = $('#checkInDateFilter').val();
+            var checkOutDate = $('#checkOutDateFilter').val();
 
-            if (amount && priceUnitValue) {
-                // Populate hidden fields for form submission
-                $('#priceUnitHidden').val(priceUnitValue);
-                $('#unitPriceHidden').val(amount);
-                
-                var deposit = Math.round(amount * 0.3);
-                $('#depositSuggestion').text(deposit.toLocaleString('vi-VN') + ' VNĐ (30%)');
-                $('input[name="RoomBookingDeposit"]').val(deposit);
-            } else {
+            if (!roomId || !priceUnitValue || !amount || !checkInDate || !checkOutDate) {
                 $('#depositSuggestion').text('---');
+                $('input[name="RoomBookingDeposit"]').val('');
                 $('#priceUnitHidden').val('');
                 $('#unitPriceHidden').val('');
+                return;
             }
+
+            $('#priceUnitHidden').val(priceUnitValue);
+            $('#unitPriceHidden').val(amount);
+            $('#depositSuggestion').text('Đang tính...');
+
+            $.ajax({
+                url: '@Url.Action("CalculateDeposit", "Reservation")',
+                type: 'GET',
+                data: {
+                    roomId: roomId,
+                    checkInDate: checkInDate,
+                    checkOutDate: checkOutDate,
+                    priceUnit: priceUnitValue
+                },
+                success: function (data) {
+                    if (!data || !data.success) {
+                        $('#depositSuggestion').text(data && data.message ? data.message : 'Không tính được tiền cọc');
+                        $('input[name="RoomBookingDeposit"]').val('');
+                        return;
+                    }
+
+                    var deposit = Math.round(Number(data.deposit || 0));
+                    var billingUnits = Number(data.billingUnits || 0);
+                    var unitText = data.priceUnit === 'HOUR' ? 'giờ' : 'ngày';
+
+                    $('#depositSuggestion').text(
+                        deposit.toLocaleString('vi-VN') + ' VNĐ (30% x ' + billingUnits + ' ' + unitText + ')'
+                    );
+                    $('input[name="RoomBookingDeposit"]').val(deposit);
+                    $('#unitPriceHidden').val(data.unitPrice || amount);
+                },
+                error: function () {
+                    $('#depositSuggestion').text('Lỗi khi tính tiền cọc');
+                    $('input[name="RoomBookingDeposit"]').val('');
+                }
+            });
         }
 
         // Validate reservation form before submit

@@ -1,7 +1,7 @@
 @startuml Class_RoomMaintenanceCleaning
 skinparam shadowing false
 skinparam classAttributeIconSize 0
-title Class đề xuất - Room Maintenance and Cleaning
+title Class chi tiết - Room Maintenance and Cleaning
 
 class Room {
   +RoomID
@@ -18,7 +18,7 @@ class Employee {
   +IsActivate
 }
 
-class RoomTask <<planned>> {
+class RoomTask {
   +RoomTaskID
   +RoomID
   +TaskType
@@ -33,7 +33,7 @@ class RoomTask <<planned>> {
   +CreatedBy
 }
 
-class RoomTaskHistory <<planned>> {
+class RoomTaskHistory {
   +RoomTaskHistoryID
   +RoomTaskID
   +OldStatus
@@ -43,7 +43,7 @@ class RoomTaskHistory <<planned>> {
   +ChangedAt
 }
 
-class RoomMaintenanceCleaningController <<planned>> {
+class RoomMaintenanceCleaningController {
   +Index()
   +CreateCleaningTask()
   +CreateMaintenanceTask()

@@ -3,7 +3,6 @@ left to right direction
 skinparam shadowing false
 title Sơ đồ ca sử dụng chi tiết - Đặt phòng
 
-actor "Khách hàng" as Customer
 actor "Nhân viên/Lễ tân" as Staff
 
 rectangle "Đặt phòng" {
@@ -18,7 +17,6 @@ rectangle "Đặt phòng" {
   usecase "Hủy đặt phòng" as UC_Cancel
 }
 
-Customer --> UC_Request
 Staff --> UC_Request
 Staff --> UC_Customer
 Staff --> UC_Create

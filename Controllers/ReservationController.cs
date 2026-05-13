@@ -250,21 +250,56 @@ namespace HotelManagement.Controllers
         }
 
         [HttpGet]
-        public async Task<JsonResult> CalculateDeposit(string roomId, DateTime checkInDate, DateTime checkOutDate)
+        public async Task<JsonResult> CalculateDeposit(string roomId, DateTime checkInDate, DateTime checkOutDate, string priceUnit = "DAY")
         {
+            if (string.IsNullOrWhiteSpace(roomId))
+            {
+                return Json(new { success = false, message = "Vui lòng chọn phòng." });
+            }
+
+            if (checkOutDate <= checkInDate)
+            {
+                return Json(new { success = false, message = "Ngày trả phòng phải sau ngày nhận phòng." });
+            }
+
+            priceUnit = string.IsNullOrWhiteSpace(priceUnit) ? "DAY" : priceUnit.ToUpperInvariant();
+            if (priceUnit != "DAY" && priceUnit != "HOUR")
+            {
+                return Json(new { success = false, message = "Hình thức thuê không hợp lệ." });
+            }
+
             var room = await _context.Rooms
                 .Include(r => r.RoomCategory)
                 .ThenInclude(rc => rc!.Pricings)
-                .FirstOrDefaultAsync(r => r.RoomID == roomId);
+                .FirstOrDefaultAsync(r => r.RoomID == roomId && r.IsActivate == "ACTIVATE");
 
             if (room == null)
-                return Json(new { success = false });
+            {
+                return Json(new { success = false, message = "Phòng không tồn tại hoặc đã ngừng hoạt động." });
+            }
 
-            var daysDiff = (checkOutDate - checkInDate).Days;
-            var dayPrice = room.RoomCategory?.Pricings?.FirstOrDefault(p => p.PriceUnit == "DAY")?.Price ?? 0;
-            var deposit = dayPrice * daysDiff * 0.3m; // 30% tiền phòng
+            var unitPrice = room.RoomCategory?.Pricings?.FirstOrDefault(p => p.PriceUnit == priceUnit)?.Price ?? 0;
+            if (unitPrice <= 0)
+            {
+                return Json(new { success = false, message = "Loại phòng chưa có bảng giá hợp lệ." });
+            }
 
-            return Json(new { success = true, deposit = deposit, totalDays = daysDiff, dayPrice = dayPrice });
+            var totalHours = Math.Max((decimal)(checkOutDate - checkInDate).TotalHours, 0.01m);
+            var billingUnits = priceUnit == "HOUR"
+                ? Math.Ceiling(totalHours)
+                : Math.Ceiling(totalHours / 24m);
+            var estimatedRoomCharge = unitPrice * billingUnits;
+            var deposit = Math.Round(estimatedRoomCharge * 0.3m, 0, MidpointRounding.AwayFromZero); // 30% tiền phòng dự kiến
+
+            return Json(new
+            {
+                success = true,
+                deposit,
+                billingUnits,
+                unitPrice,
+                priceUnit,
+                estimatedRoomCharge
+            });
         }
 
         // Xóa phiếu đặt phòng (soft delete)

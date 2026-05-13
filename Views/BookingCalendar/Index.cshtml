@@ -1,0 +1,181 @@
+@model HotelManagement.Models.ViewModels.BookingCalendarViewModel
+@using System.Text.Json
+@using HotelManagement.Models.ViewModels
+
+@{
+    ViewData["Title"] = "Lịch đặt phòng";
+    var initialConfig = new
+    {
+        startDate = Model.StartDate.ToString("yyyy-MM-dd"),
+        viewMode = Model.ViewMode,
+        roomCategoryID = Model.RoomCategoryID ?? string.Empty,
+        roomStatus = Model.RoomStatus ?? string.Empty,
+        reservationStatus = Model.ReservationStatus ?? string.Empty,
+        keyword = Model.Keyword ?? string.Empty,
+        canEditSchedule = Model.CanEditSchedule,
+        urls = new
+        {
+            rooms = Url.Action("Rooms", "BookingCalendar"),
+            events = Url.Action("Events", "BookingCalendar"),
+            tasks = Url.Action("Tasks", "BookingCalendar"),
+            checkAvailability = Url.Action("CheckAvailability", "BookingCalendar"),
+            previewPriceChange = Url.Action("PreviewPriceChange", "BookingCalendar"),
+            moveReservation = Url.Action("MoveReservation", "BookingCalendar"),
+            reservationCreate = Url.Action("Create", "Reservation"),
+            reservationDetails = Url.Action("Details", "Reservation")
+        }
+    };
+}
+
+@section Scripts {
+    @Html.AntiForgeryToken()
+    <script>
+        window.bookingCalendarConfig = @Html.Raw(JsonSerializer.Serialize(initialConfig));
+    </script>
+    <script src="~/js/booking-calendar.js" asp-append-version="true"></script>
+}
+
+<link rel="stylesheet" href="~/css/booking-calendar.css" asp-append-version="true" />
+
+<div class="page-header fade-in-up">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+        <div>
+            <h1>
+                <i class="fas fa-calendar-alt"></i>
+                Lịch đặt phòng
+            </h1>
+            <p>Xem tình trạng đặt phòng theo phòng và ngày, kiểm tra trùng lịch trước khi tạo hoặc điều chỉnh phiếu đặt phòng.</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a asp-controller="Reservation" asp-action="Create" class="btn btn-primary-modern">
+                <i class="fas fa-calendar-plus"></i> Tạo đặt phòng
+            </a>
+            <a asp-controller="Reservation" asp-action="Index" class="btn btn-secondary">
+                <i class="fas fa-list"></i> Danh sách phiếu
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="calendar-shell fade-in-up">
+    <form id="bookingCalendarFilterForm" class="calendar-toolbar" method="get" asp-action="Index">
+        <input type="hidden" id="calendarStartDate" name="startDate" value="@Model.StartDate.ToString("yyyy-MM-dd")" />
+        <input type="hidden" id="calendarViewMode" name="viewMode" value="@Model.ViewMode" />
+
+        <div class="calendar-navigation">
+            <button type="button" class="btn btn-light border" data-calendar-nav="today">
+                <i class="fas fa-calendar-day"></i> Hôm nay
+            </button>
+            <button type="button" class="btn btn-light border" data-calendar-nav="prev" title="Khoảng trước">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <button type="button" class="btn btn-light border" data-calendar-nav="next" title="Khoảng sau">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+            <div class="calendar-range-title" id="calendarRangeTitle">Đang tải...</div>
+        </div>
+
+        <div class="calendar-view-switcher" role="group" aria-label="Chế độ xem lịch">
+            <button type="button" class="btn @(Model.ViewMode == BookingCalendarViewModes.Day ? "btn-primary" : "btn-outline-primary")" data-view-mode="day">Ngày</button>
+            <button type="button" class="btn @(Model.ViewMode == BookingCalendarViewModes.Week ? "btn-primary" : "btn-outline-primary")" data-view-mode="week">Tuần</button>
+            <button type="button" class="btn @(Model.ViewMode == BookingCalendarViewModes.Month ? "btn-primary" : "btn-outline-primary")" data-view-mode="month">Tháng</button>
+        </div>
+
+        <div class="calendar-filter-grid">
+            <div>
+                <label class="form-label-modern" for="roomCategoryID">Loại phòng</label>
+                <select class="form-select form-control-modern" id="roomCategoryID" name="roomCategoryID" asp-items="Model.RoomCategories"></select>
+            </div>
+            <div>
+                <label class="form-label-modern" for="roomStatus">Trạng thái phòng</label>
+                <select class="form-select form-control-modern" id="roomStatus" name="roomStatus" asp-items="Model.RoomStatuses"></select>
+            </div>
+            <div>
+                <label class="form-label-modern" for="reservationStatus">Trạng thái đặt phòng</label>
+                <select class="form-select form-control-modern" id="reservationStatus" name="reservationStatus" asp-items="Model.ReservationStatuses"></select>
+            </div>
+            <div>
+                <label class="form-label-modern" for="keyword">Từ khóa</label>
+                <input class="form-control-modern" id="keyword" name="keyword" value="@Model.Keyword" placeholder="Mã phiếu, khách hàng, phòng" />
+            </div>
+            <div class="calendar-filter-actions">
+                <button type="submit" class="btn btn-primary-modern w-100">
+                    <i class="fas fa-filter"></i> Lọc lịch
+                </button>
+                <button type="button" id="resetCalendarFilters" class="btn btn-light border w-100">
+                    <i class="fas fa-undo"></i> Xóa lọc
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <div class="calendar-legend">
+        <span><i class="legend-dot booked"></i> Đã đặt</span>
+        <span><i class="legend-dot checked-in"></i> Đã check-in</span>
+        <span><i class="legend-dot checked-out"></i> Đã check-out</span>
+        <span><i class="legend-dot overdue-checkin"></i> Quá hạn nhận phòng</span>
+        <span><i class="legend-dot cleaning-task"></i> Dọn phòng</span>
+        <span><i class="legend-dot maintenance-task"></i> Bảo trì</span>
+    </div>
+
+    <div class="alert alert-info calendar-help">
+        <i class="fas fa-info-circle"></i>
+        Click vào ô trống để kiểm tra khả dụng và chuyển sang form tạo đặt phòng. Click vào block đặt phòng để xem nhanh chi tiết.
+        @if (Model.CanEditSchedule)
+        {
+            <span> Nhân viên/Manager/Admin có thể kéo block đặt phòng chưa check-in sang ngày/phòng khác để điều chỉnh lịch.</span>
+        }
+        else
+        {
+            <span> Tài khoản hiện tại chỉ xem lịch và tạo đặt phòng qua form chuẩn.</span>
+        }
+    </div>
+
+    <div id="bookingCalendarStatus" class="calendar-status d-none"></div>
+
+    <div class="booking-calendar-scroll">
+        <div id="bookingCalendarGrid" class="booking-calendar-grid" aria-live="polite">
+            <div class="calendar-loading">
+                <i class="fas fa-spinner fa-spin"></i> Đang tải lịch đặt phòng...
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="priceChangeConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content price-confirm-modal">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title"><i class="fas fa-coins"></i> Xác nhận thay đổi giá phòng</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body" id="priceChangeConfirmModalBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light border" id="cancelPriceChangeButton">
+                    <i class="fas fa-times"></i> Hủy cập nhật
+                </button>
+                <button type="button" class="btn btn-warning" id="confirmPriceChangeButton">
+                    <i class="fas fa-check-circle"></i> Xác nhận áp dụng giá mới
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="bookingEventModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-calendar-check"></i> Chi tiết đặt phòng</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body" id="bookingEventModalBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <a id="bookingEventDetailsLink" class="btn btn-primary-modern" href="#">
+                    <i class="fas fa-eye"></i> Xem phiếu
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

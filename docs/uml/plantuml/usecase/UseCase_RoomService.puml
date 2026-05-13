@@ -3,7 +3,6 @@ left to right direction
 skinparam shadowing false
 title Sơ đồ ca sử dụng chi tiết - Dịch vụ phòng
 
-actor "Khách hàng" as Customer
 actor "Nhân viên/Lễ tân" as Staff
 
 rectangle "Dịch vụ phòng" {
@@ -15,9 +14,6 @@ rectangle "Dịch vụ phòng" {
   usecase "Tính phí dịch vụ" as UC_Total
 }
 
-Customer --> UC_Add
-Customer --> UC_Update
-Customer --> UC_Delete
 Staff --> UC_List
 Staff --> UC_Search
 Staff --> UC_Add

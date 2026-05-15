@@ -294,7 +294,13 @@ ALTER TABLE Invoice
 ADD roomBookingDeposit DECIMAL(18, 2);
 ALTER TABLE Invoice
 ADD taxRate FLOAT NOT NULL DEFAULT 0.1 CHECK (taxRate >= 0 AND taxRate <= 1),
-    totalAmount AS ((roomCharge + servicesCharge - roomBookingDeposit) * (1+taxRate)) PERSISTED;
+    totalAmount AS (
+        CASE
+            WHEN ((roomCharge + servicesCharge) * (1 + taxRate) - roomBookingDeposit) > 0
+                THEN ((roomCharge + servicesCharge) * (1 + taxRate) - roomBookingDeposit)
+            ELSE 0
+        END
+    ) PERSISTED;
 GO
 
 -- Thêm các cột mới cho luồng thanh toán mới
@@ -700,8 +706,15 @@ BEGIN
             RETURN -1;
         END
         
-        -- Kiểm tra phòng có tồn tại và sẵn sàng
-        IF NOT EXISTS (SELECT 1 FROM Room WHERE roomID = @roomID AND roomStatus = 'AVAILABLE' AND isActivate = 'ACTIVATE')
+        -- Kiểm tra phòng có tồn tại và không ở trạng thái khóa đặt phòng.
+        -- Cho phép đặt lịch tương lai khi phòng đang ON_USE/RESERVED nếu không trùng lịch.
+        IF NOT EXISTS (
+            SELECT 1
+            FROM Room
+            WHERE roomID = @roomID
+              AND isActivate = 'ACTIVATE'
+              AND roomStatus NOT IN ('UNAVAILABLE', 'OVERDUE', 'MAINTENANCE', 'OUT_OF_SERVICE')
+        )
         BEGIN
             RAISERROR('Phòng không tồn tại hoặc không khả dụng.', 16, 1);
             ROLLBACK TRANSACTION;
@@ -907,7 +920,7 @@ BEGIN
         FROM Room
         WHERE roomID = @roomID
           AND isActivate = 'ACTIVATE'
-          AND roomStatus NOT IN ('UNAVAILABLE', 'ON_USE', 'OVERDUE', 'MAINTENANCE', 'OUT_OF_SERVICE');
+          AND roomStatus NOT IN ('UNAVAILABLE', 'OVERDUE', 'MAINTENANCE', 'OUT_OF_SERVICE');
 
         IF @newRoomCategoryID IS NULL
         BEGIN
@@ -1544,7 +1557,7 @@ GO
 --------------------------------------------------------
 -- Trigger để cập nhật trạng thái phòng khi có checkin
 -------------------------------------------------------
-CREATE TRIGGER TR_UpdateRoomStatus_OnCheckin
+CREATE OR ALTER TRIGGER TR_UpdateRoomStatus_OnCheckin
 ON HistoryCheckin
 AFTER INSERT
 AS
@@ -1558,13 +1571,25 @@ END;
 GO
 
 --Trigger để cập nhật trạng thái phòng khi có checkout
-CREATE TRIGGER TR_UpdateRoomStatus_OnCheckOut
+CREATE OR ALTER TRIGGER TR_UpdateRoomStatus_OnCheckOut
 ON HistoryCheckOut
 AFTER INSERT
 AS
 BEGIN
     UPDATE Room
-    SET roomStatus = 'AVAILABLE'
+    SET roomStatus = CASE
+        WHEN EXISTS (
+            SELECT 1
+            FROM ReservationForm nextRf
+            LEFT JOIN HistoryCheckin nextHci ON nextRf.reservationFormID = nextHci.reservationFormID
+            WHERE nextRf.roomID = Room.roomID
+              AND nextRf.isActivate = 'ACTIVATE'
+              AND nextHci.historyCheckinID IS NULL
+              AND nextRf.checkInDate > GETDATE()
+              AND nextRf.checkInDate <= DATEADD(HOUR, 5, GETDATE())
+        ) THEN 'RESERVED'
+        ELSE 'AVAILABLE'
+    END
     FROM inserted i
     JOIN ReservationForm rf ON i.reservationFormID = rf.reservationFormID
     WHERE Room.roomID = rf.roomID;
@@ -1585,7 +1610,7 @@ BEGIN
         SELECT 1
         FROM inserted i
         JOIN Room r ON i.roomID = r.roomID
-        WHERE r.roomStatus IN ('UNAVAILABLE', 'ON_USE', 'OVERDUE') 
+        WHERE r.roomStatus IN ('UNAVAILABLE', 'OVERDUE', 'MAINTENANCE', 'OUT_OF_SERVICE') 
               OR r.isActivate = 'DEACTIVATE'
     )
     BEGIN
@@ -1790,6 +1815,22 @@ BEGIN
             rf.reservationFormID = @reservationFormID;
             
         -- Kiểm tra xem phòng có sẵn sàng không
+        -- Chặn check-in nếu cùng phòng đang có khách khác chưa checkout.
+        IF EXISTS (
+            SELECT 1
+            FROM HistoryCheckin hc
+            JOIN ReservationForm activeRf ON hc.reservationFormID = activeRf.reservationFormID
+            LEFT JOIN HistoryCheckOut hco ON hco.reservationFormID = hc.reservationFormID
+            WHERE activeRf.roomID = @roomID
+              AND hc.reservationFormID <> @reservationFormID
+              AND hco.historyCheckOutID IS NULL
+        )
+        BEGIN
+            RAISERROR(N'Phòng đang có khách chưa checkout. Vui lòng checkout khách trước hoặc đổi phòng.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN -1;
+        END
+
         DECLARE @roomStatus NVARCHAR(20);
         
         SELECT @roomStatus = roomStatus 
@@ -2822,9 +2863,11 @@ BEGIN
         
         -- Kiểm tra đã thanh toán chưa
         DECLARE @isPaid BIT,
-                @totalAmount Decimal(18,2)
+                @totalAmount Decimal(18,2),
+                @amountToCollect Decimal(18,2)
 
         SELECT @isPaid = isPaid, @totalAmount = totalAmount FROM Invoice WHERE invoiceID = @invoiceID;
+        SET @amountToCollect = CASE WHEN @totalAmount > 0 THEN @totalAmount ELSE 0 END;
 
         IF @isPaid = 1
         BEGIN
@@ -2849,7 +2892,7 @@ BEGIN
         SET isPaid = @isPaid,
             paymentDate = GETDATE(),
             paymentMethod = @paymentMethod,
-            amountPaid = @totalAmount
+            amountPaid = @amountToCollect
         WHERE invoiceID = @invoiceID;
         
         -- Lấy roomID để giải phóng phòng
@@ -2859,8 +2902,22 @@ BEGIN
         JOIN ReservationForm rf ON inv.reservationFormID = rf.reservationFormID
         WHERE inv.invoiceID = @invoiceID;
         
-        -- Giải phóng phòng
-        UPDATE Room SET roomStatus = 'AVAILABLE' WHERE roomID = @roomID;
+        -- Giải phóng phòng, nhưng giữ RESERVED nếu có đặt phòng kế tiếp trong 5 giờ.
+        UPDATE Room
+        SET roomStatus = CASE
+            WHEN EXISTS (
+                SELECT 1
+                FROM ReservationForm nextRf
+                LEFT JOIN HistoryCheckin nextHci ON nextRf.reservationFormID = nextHci.reservationFormID
+                WHERE nextRf.roomID = @roomID
+                  AND nextRf.isActivate = 'ACTIVATE'
+                  AND nextHci.historyCheckinID IS NULL
+                  AND nextRf.checkInDate > GETDATE()
+                  AND nextRf.checkInDate <= DATEADD(HOUR, 5, GETDATE())
+            ) THEN 'RESERVED'
+            ELSE 'AVAILABLE'
+        END
+        WHERE roomID = @roomID;
         
         -- Trả về thông tin (sử dụng biến để đảm bảo giá trị đúng)
         DECLARE @currentDate DATETIME = GETDATE();
@@ -2968,8 +3025,22 @@ BEGIN
             IF @additionalCharge < 0 SET @additionalCharge = 0;
         END
         
-        -- Giải phóng phòng
-        UPDATE Room SET roomStatus = 'AVAILABLE' WHERE roomID = @roomID;
+        -- Giải phóng phòng, nhưng giữ RESERVED nếu có đặt phòng kế tiếp trong 5 giờ.
+        UPDATE Room
+        SET roomStatus = CASE
+            WHEN EXISTS (
+                SELECT 1
+                FROM ReservationForm nextRf
+                LEFT JOIN HistoryCheckin nextHci ON nextRf.reservationFormID = nextHci.reservationFormID
+                WHERE nextRf.roomID = @roomID
+                  AND nextRf.isActivate = 'ACTIVATE'
+                  AND nextHci.historyCheckinID IS NULL
+                  AND nextRf.checkInDate > GETDATE()
+                  AND nextRf.checkInDate <= DATEADD(HOUR, 5, GETDATE())
+            ) THEN 'RESERVED'
+            ELSE 'AVAILABLE'
+        END
+        WHERE roomID = @roomID;
         
         -- Trả về thông tin
         SELECT 

@@ -76,26 +76,29 @@ namespace HotelManagement.Controllers
         {
             if (!CheckAuth()) return RedirectToAction("Login", "Auth");
 
+            Console.WriteLine(
+                $"[RoomCategory/Create] POST received. Name='{roomCategory.RoomCategoryName}', Beds={roomCategory.NumberOfBed}, PriceHour={priceHour}, PriceDay={priceDay}");
+
             if (ModelState.IsValid)
             {
                 try
                 {
-                    var newPricingHourID = "";
-                    var newPricingDayID = "";
                     // Tạo ID cho RoomCategory
                     roomCategory.RoomCategoryID = await _context.GenerateID("RC-", "RoomCategory");
                     roomCategory.IsActivate = "ACTIVATE";
 
+                    var nextPricingID = await _context.GenerateID("P-", "Pricing");
+                    var nextPricingNumber = int.Parse(nextPricingID.Substring("P-".Length));
+                    string GenerateNextPricingID() => "P-" + (nextPricingNumber++).ToString("D6");
+
                     _context.Add(roomCategory);
-                    await _context.SaveChangesAsync();
 
                     // Thêm Pricing cho HOUR (nếu có)
                     if (priceHour.HasValue && priceHour.Value > 0)
                     {
-                        newPricingHourID = await _context.GenerateID("P-", "Pricing");
                         var pricingHour = new Pricing
                         {
-                            PricingID = newPricingHourID,
+                            PricingID = GenerateNextPricingID(),
                             PriceUnit = "HOUR",
                             Price = priceHour.Value,
                             RoomCategoryID = roomCategory.RoomCategoryID
@@ -106,11 +109,9 @@ namespace HotelManagement.Controllers
                     // Thêm Pricing cho DAY (nếu có)
                     if (priceDay.HasValue && priceDay.Value > 0)
                     {
-                        int num = int.Parse(newPricingHourID.Substring("P-".Length));
-                        newPricingDayID = "P-" + (num + 1).ToString("D6");
                         var pricingDay = new Pricing
                         {
-                            PricingID = newPricingDayID,
+                            PricingID = GenerateNextPricingID(),
                             PriceUnit = "DAY",
                             Price = priceDay.Value,
                             RoomCategoryID = roomCategory.RoomCategoryID
@@ -120,13 +121,25 @@ namespace HotelManagement.Controllers
 
                     await _context.SaveChangesAsync();
 
+                    Console.WriteLine(
+                        $"[RoomCategory/Create] Saved successfully. RoomCategoryID={roomCategory.RoomCategoryID}, Name='{roomCategory.RoomCategoryName}'");
+
                     TempData["Success"] = $" Thêm loại phòng '{roomCategory.RoomCategoryName}' thành công!";
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
                 {
+                    Console.WriteLine($"[RoomCategory/Create] Save failed: {ex}");
                     TempData["Error"] = $"❌ Lỗi: {ex.Message}";
                 }
+            }
+            else
+            {
+                var errors = ModelState
+                    .Where(item => item.Value?.Errors.Count > 0)
+                    .Select(item => $"{item.Key}: {string.Join("; ", item.Value!.Errors.Select(error => error.ErrorMessage))}");
+
+                Console.WriteLine($"[RoomCategory/Create] ModelState invalid. {string.Join(" | ", errors)}");
             }
 
             return View(roomCategory);
@@ -193,9 +206,20 @@ namespace HotelManagement.Controllers
                     existingCategory.RoomCategoryName = roomCategory.RoomCategoryName;
                     existingCategory.NumberOfBed = roomCategory.NumberOfBed;
                     existingCategory.IsActivate = roomCategory.IsActivate;
-                    
-                    string newPricingHourID = null;
-                    string newPricingDayID = null;
+
+                    var hasNextPricingNumber = false;
+                    var nextPricingNumber = 0;
+                    async Task<string> GenerateNextPricingIDAsync()
+                    {
+                        if (!hasNextPricingNumber)
+                        {
+                            var nextPricingID = await _context.GenerateID("P-", "Pricing");
+                            nextPricingNumber = int.Parse(nextPricingID.Substring("P-".Length));
+                            hasNextPricingNumber = true;
+                        }
+
+                        return "P-" + (nextPricingNumber++).ToString("D6");
+                    }
 
                     // Xử lý Pricing HOUR
                     var existingPricingHour = existingCategory.Pricings?
@@ -210,11 +234,10 @@ namespace HotelManagement.Controllers
                         }
                         else
                         {
-                            newPricingHourID = await _context.GenerateID("P-", "Pricing");
                             // Chưa có → Add mới
                             var newPricingHour = new Pricing
                             {
-                                PricingID = newPricingHourID,
+                                PricingID = await GenerateNextPricingIDAsync(),
                                 PriceUnit = "HOUR",
                                 Price = priceHour.Value,
                                 RoomCategoryID = id
@@ -236,13 +259,10 @@ namespace HotelManagement.Controllers
                         }
                         else
                         {
-                            int num = int.Parse(newPricingHourID.Substring("P-".Length));
-                            newPricingDayID = "P-" + (num + 1).ToString("D6");
-
                             // Chưa có → Add mới
                             var newPricingDay = new Pricing
                             {
-                                PricingID = newPricingDayID,
+                                PricingID = await GenerateNextPricingIDAsync(),
                                 PriceUnit = "DAY",
                                 Price = priceDay.Value,
                                 RoomCategoryID = id
@@ -253,7 +273,7 @@ namespace HotelManagement.Controllers
 
                     await _context.SaveChangesAsync();
 
-                    TempData["Success"] = $"✅ Cập nhật loại phòng '{roomCategory.RoomCategoryName}' thành công!";
+                    TempData["Success"] = $"Cập nhật loại phòng '{roomCategory.RoomCategoryName}' thành công!";
                     return RedirectToAction(nameof(Index));
                 }
                 catch (DbUpdateConcurrencyException)

@@ -459,6 +459,7 @@
     <script src="~/js/validation.js"></script>
     <script>
         let selectedRoomId = null;
+        let pricingOptions = [];
         const calendarPrefill = {
             roomID: '@(Context.Request.Query["roomID"].ToString())',
             checkInDate: '@(Context.Request.Query["checkInDate"].ToString())',
@@ -510,7 +511,11 @@
             });
 
             // Duration input change - auto calculate checkout date
-            $('#durationInput, #durationUnit').on('change input', calculateCheckOutFromDuration);
+            $('#durationInput').on('change input', calculateCheckOutFromDuration);
+            $('#durationUnit').on('change', function () {
+                calculateCheckOutFromDuration();
+                renderPricingOptions();
+            });
 
             // Check-in date change - recalculate checkout if duration is set
             $('#checkInDateFilter').on('change', calculateCheckOutFromDuration);
@@ -780,6 +785,12 @@
                         }
 
                         const isSelected = selectedRoomId === room.roomID;
+                        const isBookable = room.isBookable === true || room.isBookable === 'true';
+                        const bookableBadge = isBookable && room.roomStatus !== 'AVAILABLE' ? `
+                            <div class="countdown-badge">
+                                <i class="fas fa-calendar-check"></i> CÃ³ thá»ƒ Ä‘áº·t theo lá»‹ch
+                            </div>
+                        ` : '';
                         
                         if (isSelected) {
                             $('#roomIdHidden').val(room.roomID);
@@ -794,8 +805,9 @@
                         
                         const cardHtml = `
                             <div class="room-card ${statusClass} ${isSelected ? 'selected' : ''}" 
-                                 onclick="selectRoom('${room.roomID}', '${room.roomCategoryName}', '${room.roomCategoryID}', '${room.roomStatus}', this)">
+                                 onclick="selectRoom('${room.roomID}', '${room.roomCategoryName}', '${room.roomCategoryID}', '${room.roomStatus}', ${isBookable}, this)">
                                 ${countdownBadge}
+                                ${bookableBadge}
                                 <div class="room-card-body">
                                     ${statusIcon}
                                     <div class="room-number">${room.roomID}</div>
@@ -856,8 +868,8 @@
         }
 
         // Select a room
-        function selectRoom(roomId, categoryName, categoryId, status, element) {
-            if (status !== 'AVAILABLE') {
+        function selectRoom(roomId, categoryName, categoryId, status, isBookable, element) {
+            if (!isBookable) {
                 alert('Phòng này không khả dụng!');
                 return;
             }
@@ -886,6 +898,7 @@
         // Clear room selection
         function clearRoomSelection() {
             selectedRoomId = null;
+            pricingOptions = [];
             $('#roomIdHidden').val('');
             $('.room-card').removeClass('selected');
             $('#selectedRoomDisplay').hide();
@@ -896,6 +909,57 @@
             $('#unitPriceHidden').val('');
         }
 
+        function getPreferredPriceUnit() {
+            return $('#durationUnit').val() === 'hour' ? 'HOUR' : 'DAY';
+        }
+
+        function getPriceUnitText(priceUnit) {
+            return priceUnit === 'HOUR' ? 'Theo giờ' : 'Theo ngày';
+        }
+
+        function renderPricingOptions() {
+            var priceSelect = $('#priceUnitSelect');
+            var preferredUnit = getPreferredPriceUnit();
+            var matchedPrices = pricingOptions.filter(function (price) {
+                return String(price.priceUnit || '').toUpperCase() === preferredUnit;
+            });
+
+            priceSelect.empty();
+            $('#priceUnitHidden').val('');
+            $('#unitPriceHidden').val('');
+
+            if (!selectedRoomId) {
+                priceSelect.append('<option value="">-- Chọn phòng trước --</option>');
+                calculateDeposit();
+                return;
+            }
+
+            if (pricingOptions.length === 0) {
+                priceSelect.append('<option value="" disabled>Không có giá</option>');
+                calculateDeposit();
+                return;
+            }
+
+            if (matchedPrices.length === 0) {
+                priceSelect.append($('<option></option>')
+                    .attr('value', '')
+                    .attr('disabled', true)
+                    .text('Loại phòng chưa có giá ' + getPriceUnitText(preferredUnit).toLowerCase()));
+                calculateDeposit();
+                return;
+            }
+
+            $.each(matchedPrices, function (i, price) {
+                priceSelect.append($('<option></option>')
+                    .attr('value', preferredUnit)
+                    .attr('data-amount', price.amount)
+                    .text(getPriceUnitText(preferredUnit) + ' - ' + Number(price.amount).toLocaleString('vi-VN') + ' VNĐ'));
+            });
+
+            priceSelect.val(preferredUnit);
+            calculateDeposit();
+        }
+
         // Load pricing options
         function loadPricingOptions(categoryId) {
             if (categoryId) {
@@ -904,26 +968,15 @@
                     type: 'GET',
                     data: { categoryId: categoryId },
                     success: function (data) {
-                        var priceSelect = $('#priceUnitSelect');
-                        priceSelect.empty();
-                        priceSelect.append('<option value="">-- Chọn hình thức --</option>');
-
-                        if (data.length === 0) {
-                            priceSelect.append('<option value="" disabled>Không có giá</option>');
-                        } else {
-                            $.each(data, function (i, price) {
-                                priceSelect.append($('<option></option>')
-                                    .attr('value', price.priceUnit)
-                                    .attr('data-amount', price.amount)
-                                    .text(price.priceUnit + ' - ' + price.amount.toLocaleString('vi-VN') + ' VNĐ'));
-                            });
-                        }
+                        pricingOptions = data || [];
+                        renderPricingOptions();
                     },
                     error: function () {
                         alert('Lỗi khi tải giá phòng!');
                     }
                 });
             } else {
+                pricingOptions = [];
                 $('#priceUnitSelect').empty()
                     .append('<option value="">-- Chọn phòng trước --</option>');
             }

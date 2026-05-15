@@ -1,6 +1,10 @@
 @model HotelManagement.Models.PagedList<HotelManagement.Models.Invoice>
 
 @{
+    var hasDateFilter = !string.IsNullOrEmpty(ViewBag.FromDate as string) || !string.IsNullOrEmpty(ViewBag.ToDate as string);
+    var statisticsRangeText = hasDateFilter
+        ? $"{(string.IsNullOrEmpty(ViewBag.FromDate as string) ? "Từ đầu" : DateTime.Parse((string)ViewBag.FromDate).ToString("dd/MM/yyyy"))} - {(string.IsNullOrEmpty(ViewBag.ToDate as string) ? "Hôm nay" : DateTime.Parse((string)ViewBag.ToDate).ToString("dd/MM/yyyy"))}"
+        : "Tất cả thời gian";
     ViewData["Title"] = "Quản lý Hóa đơn";
 }
 
@@ -15,13 +19,18 @@
 
 <!-- Statistics -->
 @{
-    var totalInvoices = Model.TotalCount;
-    var totalRevenue = Model.Sum(i => i.NetDue ?? 0);
-    var paidInvoices = Model.Count(i => i.IsPaid);
-    var unpaidInvoices = Model.Count(i => !i.IsPaid);
-    var paidRevenue = Model.Where(i => i.IsPaid).Sum(i => i.NetDue ?? 0);
-    var unpaidRevenue = Model.Where(i => !i.IsPaid).Sum(i => i.NetDue ?? 0);
+    var totalInvoices = (int)(ViewBag.TotalInvoices ?? Model.TotalCount);
+    var totalRevenue = (decimal)(ViewBag.TotalRevenue ?? 0m);
+    var paidInvoices = (int)(ViewBag.PaidInvoices ?? 0);
+    var unpaidInvoices = (int)(ViewBag.UnpaidInvoices ?? 0);
+    var paidRevenue = (decimal)(ViewBag.PaidRevenue ?? 0m);
+    var unpaidRevenue = (decimal)(ViewBag.UnpaidRevenue ?? 0m);
 }
+
+<div class="alert alert-info-modern fade-in-up mb-4">
+    <i class="fas fa-calendar-alt me-2"></i>
+    Thống kê đang tính theo khoảng: <strong>@statisticsRangeText</strong>
+</div>
 
 <div class="row g-4 mb-4">
     <div class="col-lg-3 col-md-6">
@@ -71,7 +80,7 @@
 <div class="card-modern fade-in-up mb-4" style="animation-delay: 0.3s">
     <div class="card-body-modern">
         <form method="get" class="row g-3">
-            <div class="col-md-7">
+            <div class="col-lg-4 col-md-6">
                 <label class="form-label-modern">Tìm kiếm</label>
                 <div class="input-group">
                     <span class="input-group-text bg-white">
@@ -85,7 +94,7 @@
                            style="border-left: none;" />
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-lg-2 col-md-6">
                 <label class="form-label-modern">Trạng thái thanh toán</label>
                 <select name="paymentStatus" class="form-select">
                     <option value="">Tất cả</option>
@@ -93,11 +102,19 @@
                     <option value="unpaid" selected="@(ViewBag.PaymentStatus == "unpaid")">Chưa thanh toán</option>
                 </select>
             </div>
-            <div class="col-md-2 d-flex align-items-end">
-                <button type="submit" class="btn btn-primary-modern w-100">
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label-modern">Từ ngày</label>
+                <input type="date" name="fromDate" class="form-control" value="@ViewBag.FromDate" />
+            </div>
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label-modern">Đến ngày</label>
+                <input type="date" name="toDate" class="form-control" value="@ViewBag.ToDate" />
+            </div>
+            <div class="col-lg-2 col-md-12 d-flex align-items-end gap-2">
+                <button type="submit" class="btn btn-primary-modern flex-fill">
                     <i class="fas fa-filter"></i> Lọc
                 </button>
-                <a href="@Url.Action("Index")" class="btn btn-secondary-modern w-100">
+                <a href="@Url.Action("Index")" class="btn btn-secondary-modern flex-fill">
                         <i class="fas fa-refresh"></i> Làm mới
                 </a>
             </div>
@@ -133,6 +150,7 @@
                             <th><i class="fas fa-calendar"></i> Ngày tạo</th>
                             <th><i class="fas fa-bed"></i> Tiền phòng</th>
                             <th><i class="fas fa-concierge-bell"></i> Tiền DV</th>
+                            <th><i class="fas fa-percent"></i> Thuế VAT</th>
                             <th><i class="fas fa-calculator"></i> Tổng tiền</th>
                             <th><i class="fas fa-info-circle"></i> Trạng thái</th>
                             <th><i class="fas fa-credit-card"></i> Thanh toán</th>
@@ -142,6 +160,10 @@
                     <tbody>
                         @foreach (var item in Model.OrderByDescending(i => i.InvoiceDate))
                         {
+                            var subTotal = item.RoomCharge + item.ServicesCharge;
+                            var rawInvoiceTotal = item.NetDue ?? (subTotal + (subTotal * item.TaxRate));
+                            var taxAmount = Math.Round(Math.Max(rawInvoiceTotal - subTotal, 0), 0);
+                            var invoiceTotal = Math.Round(rawInvoiceTotal, 0);
                             <tr>
                                 <td><strong class="text-primary">#@item.InvoiceID</strong></td>
                                 <td><strong>@item.ReservationFormID</strong></td>
@@ -149,8 +171,9 @@
                                 <td>@item.InvoiceDate.ToString("dd/MM/yyyy HH:mm")</td>
                                 <td>@item.RoomCharge.ToString("N0") đ</td>
                                 <td>@item.ServicesCharge.ToString("N0") đ</td>
+                                <td>@taxAmount.ToString("N0") đ</td>
                                 <td>
-                                    <strong class="text-success">@((item.TotalAmount ?? item.NetDue ?? 0).ToString("N0")) đ</strong>
+                                    <strong class="text-success">@invoiceTotal.ToString("N0") đ</strong>
                                 </td>
                                 <td>
                                     @if (!string.IsNullOrEmpty(item.CheckoutType))

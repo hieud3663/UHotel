@@ -9,6 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Quản lý Khách sạn UHOTEL</title>
+    <link rel="icon" type="image/png" href="~/img/uhotel.png" asp-append-version="true" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <style>
@@ -59,14 +60,27 @@
         }
 
         .brand-mark {
-            width: 52px;
-            height: 52px;
-            border: 1px solid rgba(255, 255, 255, 0.38);
-            border-radius: 8px;
+            width: 96px;
+            min-height: 72px;
+            border-radius: 12px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
+            margin-bottom: 22px;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.96);
+            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.14);
+        }
+
+        .brand-mark img,
+        .login-panel-logo img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .login-panel-logo {
+            width: 112px;
             margin-bottom: 22px;
         }
 
@@ -286,7 +300,7 @@
         <section class="login-info" aria-label="Thông tin hệ thống">
             <div>
                 <div class="brand-mark">
-                    <i class="fas fa-hotel"></i>
+                    <img src="~/img/uhotel.png" asp-append-version="true" alt="UHOTEL" />
                 </div>
                 <div class="login-header">
                     <h1>UHOTEL</h1>
@@ -313,6 +327,9 @@
         </section>
 
         <main class="login-panel">
+            <div class="login-panel-logo" aria-hidden="true">
+                <img src="~/img/uhotel.png" asp-append-version="true" alt="" />
+            </div>
             <div class="login-header">
                 <h2>Đăng nhập</h2>
                 <p>Nhập thông tin tài khoản để tiếp tục làm việc.</p>

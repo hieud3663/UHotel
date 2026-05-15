@@ -17,6 +17,8 @@
         
         if (ViewBag.SearchTerm != null) queryParams.Add($"searchTerm={ViewBag.SearchTerm}");
         if (ViewBag.PaymentStatus != null) queryParams.Add($"paymentStatus={ViewBag.PaymentStatus}");
+        if (ViewBag.FromDate != null) queryParams.Add($"fromDate={ViewBag.FromDate}");
+        if (ViewBag.ToDate != null) queryParams.Add($"toDate={ViewBag.ToDate}");
         if (ViewBag.SearchString != null) queryParams.Add($"searchString={ViewBag.SearchString}");
         if (ViewBag.CategoryFilter != null) queryParams.Add($"categoryFilter={ViewBag.CategoryFilter}");
         if (ViewBag.PhoneNumber != null) queryParams.Add($"phoneNumber={ViewBag.PhoneNumber}");

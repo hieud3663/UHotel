@@ -19,17 +19,34 @@ namespace HotelManagement.Controllers
             return HttpContext.Session.GetString("UserID") != null;
         }
 
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(string? phoneNumber = null, string? customerName = null, string? reservationId = null)
         {
             if (!CheckAuth()) return RedirectToAction("Login", "Auth");
             
             // Lấy danh sách phòng đã đặt nhưng chưa check-in
-            var pendingReservations = await _context.ReservationForms
+            var query = _context.ReservationForms
                 .Include(r => r.Customer)
                 .Include(r => r.Room)
                 .ThenInclude(ro => ro!.RoomCategory)
                 .Where(r => r.IsActivate == "ACTIVATE" && 
-                            !_context.HistoryCheckins.Any(h => h.ReservationFormID == r.ReservationFormID))
+                            !_context.HistoryCheckins.Any(h => h.ReservationFormID == r.ReservationFormID));
+
+            if (!string.IsNullOrEmpty(phoneNumber))
+            {
+                query = query.Where(r => r.Customer!.PhoneNumber.Contains(phoneNumber));
+            }
+
+            if (!string.IsNullOrEmpty(customerName))
+            {
+                query = query.Where(r => r.Customer!.FullName.Contains(customerName));
+            }
+
+            if (!string.IsNullOrEmpty(reservationId))
+            {
+                query = query.Where(r => r.ReservationFormID.Contains(reservationId));
+            }
+
+            var pendingReservations = await query
                 .OrderBy(r => r.CheckInDate)
                 .ToListAsync();
 
@@ -38,6 +55,26 @@ namespace HotelManagement.Controllers
                 .Where(r => r.CheckOutDate < DateTime.UtcNow.AddHours(7))
                 .Select(r => r.ReservationFormID)
                 .ToHashSet();
+
+            var pendingRoomIds = pendingReservations
+                .Select(r => r.RoomID)
+                .Where(roomId => !string.IsNullOrEmpty(roomId))
+                .Distinct()
+                .ToList();
+
+            ViewBag.OccupiedRoomIds = await _context.HistoryCheckins
+                .Include(h => h.ReservationForm)
+                .Where(h => h.ReservationForm != null
+                            && h.ReservationForm.RoomID != null
+                            && pendingRoomIds.Contains(h.ReservationForm.RoomID)
+                            && !_context.HistoryCheckOuts.Any(co => co.ReservationFormID == h.ReservationFormID))
+                .Select(h => h.ReservationForm!.RoomID!)
+                .Distinct()
+                .ToListAsync();
+
+            ViewBag.PhoneNumber = phoneNumber;
+            ViewBag.CustomerName = customerName;
+            ViewBag.ReservationId = reservationId;
 
             return View(pendingReservations);
         }
@@ -52,7 +89,6 @@ namespace HotelManagement.Controllers
                 .Include(r => r.Room)
                 .FirstOrDefaultAsync(r => r.ReservationFormID == reservationFormID);
 
-            if (reservation == null)
             if (reservation == null || reservation.IsActivate == "DEACTIVATE")
             {
                 TempData["Error"] = "Không tìm thấy phiếu đặt phòng!";

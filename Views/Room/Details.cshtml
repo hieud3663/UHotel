@@ -65,7 +65,13 @@
                 <i class="fas fa-dollar-sign me-2"></i>Bảng giá
             </div>
             <div class="card-body-modern">
-                @if (ViewBag.Pricings != null && ViewBag.Pricings.Count > 0)
+                @{
+                    var pricings = Model.RoomCategory?.Pricings?
+                        .OrderBy(p => p.PriceUnit == "HOUR" ? 0 : p.PriceUnit == "DAY" ? 1 : 2)
+                        .ToList();
+                }
+
+                @if (pricings != null && pricings.Any())
                 {
                     <table class="table table-hover mb-0">
                         <thead class="table-light">
@@ -75,7 +81,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var price in ViewBag.Pricings)
+                            @foreach (var price in pricings)
                             {
                                 <tr>
                                     <td>
@@ -84,14 +90,18 @@
                                             {
                                                 <i class="fas fa-sun"></i> <span>Theo ngày</span>
                                             }
-                                            else
+                                            else if (price.PriceUnit == "HOUR")
                                             {
                                                 <i class="fas fa-clock"></i> <span>Theo giờ</span>
+                                            }
+                                            else
+                                            {
+                                                <i class="fas fa-money-bill-wave"></i> <span>@price.PriceUnit</span>
                                             }
                                         </strong>
                                     </td>
                                     <td class="text-end">
-                                        <strong class="text-success">@price.Amount.ToString("N0") VNĐ</strong>
+                                        <strong class="text-success">@price.Price.ToString("N0") VNĐ</strong>
                                     </td>
                                 </tr>
                             }

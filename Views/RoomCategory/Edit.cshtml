@@ -19,7 +19,7 @@
         <i class="fas fa-edit me-2"></i>Thông tin Loại phòng
     </div>
     <div class="card-body-modern">
-        <form asp-action="Edit" method="post">
+        <form id="roomCategoryEditForm" asp-action="Edit" method="post">
             <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
             
             <input type="hidden" asp-for="RoomCategoryID" />
@@ -78,6 +78,7 @@
                                value="@ViewBag.PriceHour" min="0" step="10000" />
                         <span class="input-group-text">VNĐ/giờ</span>
                     </div>
+                    <span id="priceHourError" class="text-danger d-block mt-1"></span>
                     <small class="text-muted">
                         @if (ViewBag.PriceHour != null)
                         {
@@ -99,6 +100,7 @@
                                value="@ViewBag.PriceDay" min="0" step="10000" />
                         <span class="input-group-text">VNĐ/ngày</span>
                     </div>
+                    <span id="priceDayError" class="text-danger d-block mt-1"></span>
                     <small class="text-muted">
                         @if (ViewBag.PriceDay != null)
                         {
@@ -113,7 +115,7 @@
             </div>
 
             <div class="d-flex gap-2 mt-4">
-                <button type="submit" class="btn btn-primary-modern">
+                <button id="saveRoomCategoryButton" type="submit" class="btn btn-primary-modern">
                     <i class="fas fa-save"></i> Lưu thay đổi
                 </button>
                 <a asp-action="Index" class="btn btn-secondary-modern">
@@ -129,4 +131,98 @@
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    
+    <script>
+        function getRoomCategoryEditPayload() {
+            return {
+                roomCategoryID: $('[name="RoomCategoryID"]').val(),
+                roomCategoryName: $('[name="RoomCategoryName"]').val(),
+                numberOfBed: $('[name="NumberOfBed"]').val(),
+                isActivate: $('[name="IsActivate"]').val(),
+                priceHour: $('#priceHour').val(),
+                priceDay: $('#priceDay').val()
+            };
+        }
+
+        function clearPriceValidationErrors() {
+            $('#priceHourError, #priceDayError').text('');
+        }
+
+        function getPriceInputError(input) {
+            const label = input.id === 'priceHour' ? 'Giá theo giờ' : 'Giá theo ngày';
+
+            if (!input.validity.valid) {
+                if (input.validity.rangeUnderflow) {
+                    return label + ' không được nhỏ hơn 0.';
+                }
+
+                if (input.validity.stepMismatch) {
+                    return label + ' phải là bội số của 10.000 VNĐ.';
+                }
+
+                if (input.validity.badInput) {
+                    return label + ' phải là số hợp lệ.';
+                }
+
+                return input.validationMessage;
+            }
+
+            return '';
+        }
+
+        function displayPriceValidationErrors() {
+            clearPriceValidationErrors();
+
+            const priceHourInput = document.getElementById('priceHour');
+            const priceDayInput = document.getElementById('priceDay');
+            const priceHourError = getPriceInputError(priceHourInput);
+            const priceDayError = getPriceInputError(priceDayInput);
+
+            $('#priceHourError').text(priceHourError);
+            $('#priceDayError').text(priceDayError);
+
+            return !priceHourError && !priceDayError;
+        }
+
+        $('#saveRoomCategoryButton').on('click', function () {
+            const form = $('#roomCategoryEditForm');
+            const isJqueryValid = typeof form.valid === 'function' ? form.valid() : 'jquery-validate-unavailable';
+            const validator = form.data('validator');
+            const validationErrors = validator
+                ? validator.errorList.map(function (item) {
+                    return {
+                        name: item.element.name,
+                        value: item.element.value,
+                        message: item.message,
+                        validity: item.element.validity
+                    };
+                })
+                : [];
+
+            console.info('[RoomCategory/Edit] Bấm nút Lưu', {
+                payload: getRoomCategoryEditPayload(),
+                jqueryValid: isJqueryValid,
+                validationErrors: validationErrors
+            });
+
+            displayPriceValidationErrors();
+        });
+
+        $('#priceHour, #priceDay').on('input change invalid', function () {
+            displayPriceValidationErrors();
+        });
+
+        $('#roomCategoryEditForm').submit(function () {
+            console.info('[RoomCategory/Edit] Submit form', {
+                payload: getRoomCategoryEditPayload()
+            });
+
+            if (!displayPriceValidationErrors()) {
+                console.warn('[RoomCategory/Edit] Chặn submit: input giá không hợp lệ theo HTML validation');
+                return false;
+            }
+
+            console.info('[RoomCategory/Edit] Cho phép submit lên server');
+        });
+    </script>
 }

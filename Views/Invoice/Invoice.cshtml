@@ -20,8 +20,10 @@
     var netDue = Model.NetDue ?? (subTotal + taxAmount);
     var deposit = (decimal)(reservation?.RoomBookingDeposit ?? 0);
     var totalAmount = Model.TotalAmount;
-    var amountPaid = Model.AmountPaid;
-    var amountDue = totalAmount - amountPaid;
+    var amountPaid = Math.Max(Model.AmountPaid, 0);
+    var balanceAfterDeposit = netDue - deposit - amountPaid;
+    var amountDue = Math.Round(Math.Max(balanceAfterDeposit, 0), 0);
+    var refundAmount = Math.Round(Math.Max(-balanceAfterDeposit, 0), 0);
 }
 
 <style>
@@ -78,7 +80,7 @@
 <div id="printarea" class="container" style="max-width: 800px; margin: 0 auto; padding: 20px; background: white;">
     <!-- Header -->
     <div style="text-align: center; border-bottom: 3px solid #333; padding-bottom: 20px; margin-bottom: 30px;">
-        <h1 style="color: #2c3e50; margin-bottom: 5px;">UHOTEL</h1>
+        <img src="~/img/uhotel.png" asp-append-version="true" alt="UHOTEL" style="width: 120px; height: auto; object-fit: contain; margin-bottom: 8px;" />
         <p style="color: #7f8c8d; margin: 0;">Địa chỉ: 451 Lê Văn Việt, Phường Tăng Nhơn Phú A, TP. Thủ Đức, TP.HCM</p>
         <p style="color: #7f8c8d; margin: 0;">Điện thoại: (028) 333458584 | Email: Info@kinghotel.com</p>
     </div>
@@ -271,15 +273,22 @@
 
             <tr style="border-top: 3px double #2c3e50;">
                 <td style="padding: 12px 0; font-size: 18px;"><strong style="color: #e74c3c;">Còn phải thanh toán:</strong></td>
-                <td style="padding: 12px 0; text-align: right; font-size: 22px; color: #e74c3c;"><strong>@Math.Round(amountDue ?? 0, 0).ToString("N0") đ</strong></td>
+                <td style="padding: 12px 0; text-align: right; font-size: 22px; color: #e74c3c;"><strong>@amountDue.ToString("N0") đ</strong></td>
             </tr>
+            @if (refundAmount > 0)
+            {
+                <tr style="background-color: #d4edda;">
+                    <td style="padding: 12px 0; font-size: 18px;"><strong style="color: #27ae60;">Cần hoàn lại cho khách:</strong></td>
+                    <td style="padding: 12px 0; text-align: right; font-size: 22px; color: #27ae60;"><strong>@refundAmount.ToString("N0") đ</strong></td>
+                </tr>
+            }
             
             @* Nếu đã thanh toán, hiển thị số tiền đã thanh toán *@
-            @if (Model.IsPaid && Model.TotalAmount.HasValue)
+            @if (Model.IsPaid)
             {
                 <tr style="background-color: #d4edda; border-top: 2px solid #27ae60;">
-                    <td style="padding: 12px 0; font-size: 16px;"><strong style="color: #27ae60;">Đã thanh toán:</strong></td>
-                    <td style="padding: 12px 0; text-align: right; font-size: 20px; color: #27ae60;"><strong>@Math.Round(Model.TotalAmount.Value, 0).ToString("N0") đ</strong></td>
+                    <td style="padding: 12px 0; font-size: 16px;"><strong style="color: #27ae60;">Đã thu thêm:</strong></td>
+                    <td style="padding: 12px 0; text-align: right; font-size: 20px; color: #27ae60;"><strong>@Math.Round(amountPaid, 0).ToString("N0") đ</strong></td>
                 </tr>
                 <tr style="background-color: #d4edda;">
                     <td style="padding: 8px 0; font-size: 14px;"><strong>Trạng thái:</strong></td>

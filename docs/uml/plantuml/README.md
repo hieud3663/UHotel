@@ -21,8 +21,7 @@ plantuml/
 | `activity/Activity_CheckIn.puml` | Nhận phòng/check-in. |
 | `activity/Activity_RoomService_Usage.puml` | Thêm, cập nhật, xóa dịch vụ phòng. |
 | `activity/Activity_RoomMaintenanceCleaning.puml` | Quản lý bảo trì và dọn phòng. |
-| `activity/Activity_CheckOut_CheckoutThenPay.puml` | Checkout trước, thanh toán sau. |
-| `activity/Activity_CheckOut_PayThenCheckout.puml` | Thanh toán trước, checkout sau. |
+| `activity/Activity_CheckOut_CheckoutThenPay.puml` | Trả phòng rồi thanh toán. |
 | `activity/Activity_Background_RoomStatusUpdate.puml` | Cập nhật trạng thái phòng tự động. |
 
 ## Class Diagram
@@ -44,8 +43,7 @@ plantuml/
 | `sequence/Sequence_CheckIn.puml` | Check-in. |
 | `sequence/Sequence_RoomService_AddUpdateDelete.puml` | Thêm/cập nhật/xóa dịch vụ phòng. |
 | `sequence/Sequence_RoomMaintenanceCleaning.puml` | Quản lý bảo trì và dọn phòng. |
-| `sequence/Sequence_CheckOut_CheckoutThenPay.puml` | Checkout trước, thanh toán sau. |
-| `sequence/Sequence_CheckOut_PayThenCheckout.puml` | Thanh toán trước, checkout sau. |
+| `sequence/Sequence_CheckOut_CheckoutThenPay.puml` | Trả phòng rồi thanh toán. |
 | `sequence/Sequence_Webhook_ConfirmPayment.puml` | Webhook xác nhận thanh toán chuyển khoản. |
 
 ## Use Case Diagram

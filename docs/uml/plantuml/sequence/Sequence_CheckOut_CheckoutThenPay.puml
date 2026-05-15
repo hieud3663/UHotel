@@ -1,7 +1,7 @@
 @startuml Sequence_CheckOut_CheckoutThenPay
 autonumber
 skinparam shadowing false
-title Sơ đồ tuần tự - Trả phòng trước, thanh toán sau
+title Sơ đồ tuần tự - Trả phòng rồi thanh toán
 
 actor "Nhân viên" as Staff
 participant "Màn hình trả phòng" as View
@@ -26,7 +26,7 @@ opt Đổi thuê giờ sang thuê ngày
 end
 
 Staff -> View: Chọn trả phòng rồi thanh toán
-View -> Controller: Gửi yêu cầu trả phòng trước
+View -> Controller: Gửi yêu cầu trả phòng
 Controller -> DbExt: Gọi xử lý tạo hóa đơn trả phòng trước
 DbExt -> SQL: Chạy thủ tục tạo hóa đơn trả phòng trước
 SQL --> DbExt: Kết quả trả phòng và hóa đơn

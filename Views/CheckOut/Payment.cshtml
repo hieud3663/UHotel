@@ -2,7 +2,11 @@
 
 @{
     ViewData["Title"] = "Thanh toán hóa đơn";
-    var amountDue = (Model.TotalAmount ?? 0) - (Model.AmountPaid);
+    var grossTotal = Model.NetDue ?? (Model.RoomCharge + Model.ServicesCharge + Model.TaxAmount);
+    var paidAmount = Math.Max(Model.AmountPaid, 0);
+    var balanceAfterDeposit = grossTotal - Model.Deposit - paidAmount;
+    var amountDue = Math.Round(Math.Max(balanceAfterDeposit, 0), 0);
+    var refundAmount = Math.Round(Math.Max(-balanceAfterDeposit, 0), 0);
 }
 
 <!-- Page Header -->
@@ -110,14 +114,21 @@
                             </tr>
                             <tr>
                                 <td><i class="fas fa-money-bill"></i> Khách đã trả</td>
-                                <td class="text-end text-success">-@Model.AmountPaid.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) VNĐ</td>
+                                <td class="text-end text-success">-@paidAmount.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) VNĐ</td>
                             </tr>
                         </tbody>
                         <tfoot>
                             <tr class="table-primary">
-                                <th><h5><i class="fas fa-calculator"></i> TỔNG CỘNG</h5></th>
+                                <th><h5><i class="fas fa-calculator"></i> CÒN PHẢI THANH TOÁN</h5></th>
                                 <th class="text-end"><h4 class="text-primary mb-0">@(amountDue.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)) VNĐ</h4></th>
                             </tr>
+                            @if (refundAmount > 0)
+                            {
+                                <tr class="table-success">
+                                    <th><h5><i class="fas fa-rotate-left"></i> CẦN HOÀN LẠI CHO KHÁCH</h5></th>
+                                    <th class="text-end"><h4 class="text-success mb-0">@refundAmount.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) VNĐ</h4></th>
+                                </tr>
+                            }
                         </tfoot>
                     </table>
                 </div>
@@ -162,11 +173,22 @@
                 <i class="fas fa-credit-card"></i> Xác nhận thanh toán
             </div>
             <div class="card-body-modern">
-                <div class="alert alert-info mb-4">
-                    <i class="fas fa-info-circle"></i>
-                    <strong>Số tiền phải thanh toán:</strong>
-                    <h3 class="mb-0 mt-2 text-primary">@(amountDue.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)) VNĐ</h3>
-                </div>
+                @if (refundAmount > 0)
+                {
+                    <div class="alert alert-success mb-4">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Không cần thu thêm tiền.</strong>
+                        <h3 class="mb-0 mt-2 text-success">Hoàn lại @refundAmount.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) VNĐ</h3>
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-info mb-4">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Số tiền phải thanh toán:</strong>
+                        <h3 class="mb-0 mt-2 text-primary">@(amountDue.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)) VNĐ</h3>
+                    </div>
+                }
 
                 @if (Model.CheckoutType == "CHECKOUT_THEN_PAY")
                 {
@@ -180,33 +202,44 @@
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="invoiceID" value="@Model.InvoiceID" />
 
-                    <div class="mb-4">
-                        <label class="form-label">
-                            <i class="fas fa-credit-card"></i> Phương thức thanh toán <span class="text-danger">*</span>
-                        </label>
-                        <div class="form-check mb-2">
-                            <input class="form-check-input" type="radio" name="paymentMethod" value="CASH" id="cash" checked required>
-                            <label class="form-check-label" for="cash">
-                                <i class="fas fa-money-bill-wave text-success"></i> Tiền mặt
+                    @if (amountDue > 0)
+                    {
+                        <div class="mb-4">
+                            <label class="form-label">
+                                <i class="fas fa-credit-card"></i> Phương thức thanh toán <span class="text-danger">*</span>
                             </label>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="paymentMethod" value="CASH" id="cash" checked required>
+                                <label class="form-check-label" for="cash">
+                                    <i class="fas fa-money-bill-wave text-success"></i> Tiền mặt
+                                </label>
+                            </div>
+                            @* <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="paymentMethod" value="CARD" id="card" required>
+                                <label class="form-check-label" for="card">
+                                    <i class="fas fa-credit-card text-primary"></i> Thẻ
+                                </label>
+                            </div> *@
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="paymentMethod" value="TRANSFER" id="transfer" required>
+                                <label class="form-check-label" for="transfer">
+                                    <i class="fas fa-exchange-alt text-info"></i> Chuyển khoản
+                                </label>
+                            </div>
                         </div>
-                        @* <div class="form-check mb-2">
-                            <input class="form-check-input" type="radio" name="paymentMethod" value="CARD" id="card" required>
-                            <label class="form-check-label" for="card">
-                                <i class="fas fa-credit-card text-primary"></i> Thẻ
-                            </label>
-                        </div> *@
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="paymentMethod" value="TRANSFER" id="transfer" required>
-                            <label class="form-check-label" for="transfer">
-                                <i class="fas fa-exchange-alt text-info"></i> Chuyển khoản
-                            </label>
+                    }
+                    else
+                    {
+                        <input type="hidden" name="paymentMethod" value="CASH" />
+                        <div class="alert alert-warning mb-4">
+                            <i class="fas fa-circle-info"></i>
+                            Hóa đơn này được hoàn tất với số tiền thu thêm 0 VNĐ. Vui lòng xử lý hoàn tiền cho khách nếu có.
                         </div>
-                    </div>
+                    }
 
                     <div class="d-grid gap-2">
                         <button type="button" class="btn btn-success-modern" onclick="handlePaymentSubmit()">
-                            <i class="fas fa-check-circle"></i> Xác nhận thanh toán
+                            <i class="fas fa-check-circle"></i> @(amountDue > 0 ? "Xác nhận thanh toán" : "Hoàn tất hóa đơn 0đ")
                         </button>
                         <a asp-action="Index" class="btn btn-secondary-modern">
                             <i class="fas fa-arrow-left"></i> Quay lại
@@ -226,7 +259,7 @@
                     <li>Kiểm tra kỹ số tiền trước khi xác nhận</li>
                     <li>Chọn phương thức thanh toán phù hợp</li>
                     <li><strong>Chuyển khoản:</strong> Nhấn vào tùy chọn để hiển thị mã QR</li>
-                    <li>Sau khi chuyển khoản, nhấn F5 để cập nhật trạng thái</li>
+                    <li>Sau khi chuyển khoản, popup QR sẽ tự kiểm tra và cập nhật trạng thái thanh toán</li>
                     @if (Model.CheckoutType == "CHECKOUT_THEN_PAY")
                     {
                         <li class="text-danger"><strong>Phòng sẽ tự động được giải phóng sau khi thanh toán</strong></li>
@@ -301,8 +334,8 @@
                                 <ol class="mb-0 mt-2 ps-3">
                                     <li>Quét mã QR hoặc chuyển khoản thủ công</li>
                                     <li>Chuyển khoản đúng nội dung <strong>@Model.InvoiceID</strong></li>
-                                    <li>Sau khi chuyển khoản xong, nhấn nút <strong>"Kiểm tra trạng thái thanh toán"</strong> bên dưới</li>
-                                    <li>Hệ thống sẽ tự động xác nhận nếu đã nhận được tiền</li>
+                                    <li>Sau khi chuyển khoản xong, giữ popup mở để hệ thống tự kiểm tra trạng thái</li>
+                                    <li>Hệ thống sẽ tự động chuyển về hóa đơn nếu đã nhận được tiền</li>
                                 </ol>
                             </small>
                         </div>
@@ -310,10 +343,14 @@
                 </div>
             </div>
             <div class="modal-footer">
+                <div id="transferPaymentStatus" class="alert alert-info d-flex align-items-center gap-2 mb-0 me-auto py-2 px-3">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <span>Đang chờ thanh toán...</span>
+                </div>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                     <i class="fas fa-times"></i> Đóng
                 </button>
-                <button type="button" class="btn btn-primary" onclick="refreshPage()">
+                <button type="button" class="btn btn-primary" onclick="checkPaymentStatus({ manual: true })">
                     <i class="fas fa-sync-alt"></i> Kiểm tra trạng thái thanh toán
                 </button>
             </div>
@@ -324,7 +361,13 @@
 @section Scripts {
     <script>
         const invoiceID = '@Model.InvoiceID';
-        const amountDue = @amountDue.ToString("N0", System.Globalization.CultureInfo.InvariantCulture).Replace(",", "");
+        const amountDue = @amountDue.ToString("F0", System.Globalization.CultureInfo.InvariantCulture);
+        const refundAmount = @refundAmount.ToString("F0", System.Globalization.CultureInfo.InvariantCulture);
+        const paymentStatusUrl = '@Url.Action("PaymentStatus", "CheckOut", new { invoiceID = Model.InvoiceID })';
+        let paymentCheckInterval = null;
+        let isCheckingPayment = false;
+        let paymentStatusResolved = false;
+        let qrCodeModalInstance = null;
         
         document.addEventListener('DOMContentLoaded', function() {
             
@@ -339,6 +382,16 @@
         });
 
         function handlePaymentSubmit() {
+            if (amountDue <= 0) {
+                const message = refundAmount > 0
+                    ? 'Xác nhận hoàn tất hóa đơn 0đ và ghi nhận cần hoàn lại ' + Number(refundAmount).toLocaleString('vi-VN') + ' VNĐ cho khách?'
+                    : 'Xác nhận hoàn tất hóa đơn 0đ?';
+                if (confirm(message)) {
+                    document.querySelector('form').submit();
+                }
+                return;
+            }
+
             const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked');
             
             if (!paymentMethod) {
@@ -358,6 +411,11 @@
 
         // Hiển thị modal QR Code
         function showQRCodeModal() {
+            if (amountDue <= 0) {
+                showToast('Hóa đơn này không cần thu thêm tiền.', 'info');
+                return;
+            }
+
             const bankCode = 'MB'; // MB Bank
             const accountNo = '02226299999';
             const accountName = 'DANG NGOC HIEU';
@@ -375,17 +433,26 @@
             $('#amountDue').text(amount.toLocaleString('vi-VN') + ' VNĐ');
             $('#transferContent').text(description);
 
-            const modal = new bootstrap.Modal(document.getElementById('qrCodeModal'));
-            modal.show();
+            const modalElement = document.getElementById('qrCodeModal');
+            qrCodeModalInstance = bootstrap.Modal.getOrCreateInstance(modalElement);
+            qrCodeModalInstance.show();
+            startPaymentPolling();
         }
 
         // Hiển thị toast notification
         function showToast(message, type = 'info') {
+            const toastTypeMap = {
+                success: { className: 'success', icon: 'check-circle' },
+                info: { className: 'info', icon: 'info-circle' },
+                warning: { className: 'warning', icon: 'exclamation-triangle' },
+                error: { className: 'danger', icon: 'exclamation-circle' }
+            };
+            const toastType = toastTypeMap[type] || toastTypeMap.info;
             const toast = document.createElement('div');
-            toast.className = `alert alert-${type === 'success' ? 'success' : 'danger'} position-fixed top-0 start-50 translate-middle-x mt-3 shadow-lg`;
+            toast.className = `alert alert-${toastType.className} position-fixed top-0 start-50 translate-middle-x mt-3 shadow-lg`;
             toast.style.zIndex = '9999';
             toast.innerHTML = `
-                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+                <i class="fas fa-${toastType.icon}"></i>
                 ${message}
             `;
             document.body.appendChild(toast);
@@ -395,11 +462,104 @@
             }, 3000);
         }
 
-        function refreshPage() {
-            showToast('Đang kiểm tra trạng thái thanh toán...', 'info');
-            setTimeout(() => {
-                location.reload();
-            }, 500);
+        function updatePaymentStatus(message, type = 'info', isLoading = false) {
+            const statusElement = document.getElementById('transferPaymentStatus');
+            if (!statusElement) {
+                return;
+            }
+
+            const typeMap = {
+                success: { className: 'success', icon: 'check-circle' },
+                info: { className: 'info', icon: isLoading ? 'spinner fa-spin' : 'info-circle' },
+                warning: { className: 'warning', icon: 'exclamation-triangle' },
+                error: { className: 'danger', icon: 'exclamation-circle' }
+            };
+            const statusType = typeMap[type] || typeMap.info;
+
+            statusElement.className = `alert alert-${statusType.className} d-flex align-items-center gap-2 mb-0 me-auto py-2 px-3`;
+            statusElement.innerHTML = `
+                <i class="fas fa-${statusType.icon}"></i>
+                <span>${message}</span>
+            `;
         }
+
+        function startPaymentPolling() {
+            stopPaymentPolling();
+            paymentStatusResolved = false;
+            updatePaymentStatus('Đang chờ thanh toán...', 'info', true);
+            checkPaymentStatus();
+            paymentCheckInterval = window.setInterval(() => checkPaymentStatus(), 5000);
+        }
+
+        function stopPaymentPolling() {
+            if (paymentCheckInterval) {
+                window.clearInterval(paymentCheckInterval);
+                paymentCheckInterval = null;
+            }
+        }
+
+        async function checkPaymentStatus({ manual = false } = {}) {
+            if (isCheckingPayment || paymentStatusResolved) {
+                return;
+            }
+
+            isCheckingPayment = true;
+
+            if (manual) {
+                updatePaymentStatus('Đang kiểm tra trạng thái thanh toán...', 'info', true);
+            }
+
+            try {
+                const response = await fetch(paymentStatusUrl, {
+                    headers: {
+                        'Accept': 'application/json'
+                    },
+                    cache: 'no-store'
+                });
+
+                if (response.status === 401) {
+                    stopPaymentPolling();
+                    updatePaymentStatus('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.', 'warning');
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error('Không thể kiểm tra trạng thái thanh toán.');
+                }
+
+                const data = await response.json();
+
+                if (data.isPaid) {
+                    paymentStatusResolved = true;
+                    stopPaymentPolling();
+                    updatePaymentStatus('Đã nhận thanh toán. Đang chuyển về hóa đơn...', 'success');
+                    showToast('Thanh toán chuyển khoản đã được xác nhận.', 'success');
+                    window.setTimeout(() => {
+                        window.location.href = data.redirectUrl || '@Url.Action("Details", "Invoice", new { id = Model.InvoiceID })';
+                    }, 1200);
+                    return;
+                }
+
+                updatePaymentStatus('Chưa nhận được thanh toán. Hệ thống sẽ tự kiểm tra lại...', 'info', true);
+
+                if (manual) {
+                    showToast('Chưa nhận được thanh toán cho hóa đơn này.', 'info');
+                }
+            } catch (error) {
+                updatePaymentStatus('Tạm thời chưa kiểm tra được trạng thái. Hệ thống sẽ thử lại...', 'warning');
+
+                if (manual) {
+                    showToast(error.message || 'Không thể kiểm tra trạng thái thanh toán.', 'warning');
+                }
+            } finally {
+                isCheckingPayment = false;
+            }
+        }
+
+        const qrCodeModalElement = document.getElementById('qrCodeModal');
+        if (qrCodeModalElement) {
+            qrCodeModalElement.addEventListener('hidden.bs.modal', stopPaymentPolling);
+        }
+
     </script>
 }

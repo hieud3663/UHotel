@@ -12,11 +12,9 @@ rectangle "Trả phòng và thanh toán" {
   usecase "Tính tiền dịch vụ" as UC_ServiceFee
   usecase "Tính thuế, cọc và số tiền còn lại" as UC_Total
   usecase "Đổi thuê giờ sang thuê ngày" as UC_Convert
-  usecase "Trả phòng trước, thanh toán sau" as UC_CheckoutThenPay
-  usecase "Thanh toán trước, trả phòng sau" as UC_PayThenCheckout
+  usecase "Trả phòng rồi thanh toán" as UC_CheckoutThenPay
   usecase "Xác nhận thanh toán" as UC_Confirm
   usecase "Xác nhận chuyển khoản qua cổng thanh toán" as UC_Webhook
-  usecase "Trả phòng thực tế sau thanh toán trước" as UC_ActualCheckout
   usecase "Tạo hóa đơn" as UC_Invoice
   usecase "Tạo lịch sử trả phòng" as UC_History
   usecase "Giải phóng phòng" as UC_FreeRoom
@@ -25,9 +23,7 @@ rectangle "Trả phòng và thanh toán" {
 Staff --> UC_Details
 Staff --> UC_Convert
 Staff --> UC_CheckoutThenPay
-Staff --> UC_PayThenCheckout
 Staff --> UC_Confirm
-Staff --> UC_ActualCheckout
 Gateway --> UC_Webhook
 
 UC_Details ..> UC_RoomFee : <<include>>
@@ -37,10 +33,6 @@ UC_CheckoutThenPay ..> UC_Invoice : <<include>>
 UC_CheckoutThenPay ..> UC_History : <<include>>
 UC_CheckoutThenPay ..> UC_FreeRoom : <<include>>
 UC_CheckoutThenPay ..> UC_Confirm : <<include>>
-UC_PayThenCheckout ..> UC_Invoice : <<include>>
-UC_PayThenCheckout ..> UC_Confirm : <<include>>
-UC_ActualCheckout ..> UC_History : <<include>>
-UC_ActualCheckout ..> UC_FreeRoom : <<include>>
 UC_Webhook ..> UC_Confirm : <<extend>>
 UC_Convert ..> UC_Details : <<extend>>
 @enduml

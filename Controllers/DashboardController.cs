@@ -20,7 +20,7 @@ namespace HotelManagement.Controllers
                 return RedirectToAction("Login", "Auth");
             }
 
-            // ✅ Background Service đã tự động cập nhật trạng thái phòng mỗi 30 phút
+            // Background Service đã tự động cập nhật trạng thái phòng mỗi 30 phút
             // Không cần gọi thủ công nữa
 
             // Thống kê tổng quan

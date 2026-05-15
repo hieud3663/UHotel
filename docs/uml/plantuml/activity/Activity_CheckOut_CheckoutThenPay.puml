@@ -1,6 +1,6 @@
 @startuml Activity_CheckOut_CheckoutThenPay
 skinparam shadowing false
-title Sơ đồ hoạt động - Trả phòng trước, thanh toán sau
+title Sơ đồ hoạt động - Trả phòng rồi thanh toán
 
 start
 :Nhân viên mở danh sách trả phòng;
@@ -12,7 +12,7 @@ if (Cần chuyển thuê giờ sang thuê ngày?) then (Có)
   :Cơ sở dữ liệu cập nhật đơn vị giá;
   :Tính lại chi phí;
 endif
-:Nhân viên chọn trả phòng trước, thanh toán sau;
+:Nhân viên chọn trả phòng rồi thanh toán;
 :Gọi thủ tục tạo hóa đơn và trả phòng;
 if (Tạo hóa đơn và trả phòng thành công?) then (Có)
   :Tạo lịch sử trả phòng;

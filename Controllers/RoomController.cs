@@ -83,6 +83,7 @@ namespace HotelManagement.Controllers
 
             var room = await _context.Rooms
                 .Include(r => r.RoomCategory)
+                .ThenInclude(rc => rc!.Pricings)
                 .FirstOrDefaultAsync(m => m.RoomID == id);
             if (room == null) return NotFound();
 
@@ -295,6 +296,7 @@ namespace HotelManagement.Controllers
         public async Task<JsonResult> GetRoomsWithReservations(string? categoryId = null, DateTime checkInDate = default, DateTime checkOutDate = default)
         {
             List<object> roomsWithInfo = new();
+            var blockedStatuses = new[] { "UNAVAILABLE", "OVERDUE", "MAINTENANCE", "OUT_OF_SERVICE" };
 
             if (!string.IsNullOrEmpty(categoryId))
             {
@@ -302,13 +304,16 @@ namespace HotelManagement.Controllers
                 var availableRooms = await _context.Rooms
                     .Include(r => r.RoomCategory)
                     .ThenInclude(rc => rc!.Pricings)
-                    .Where(r => r.RoomCategoryID == categoryId && r.RoomStatus == "AVAILABLE" && r.IsActivate == "ACTIVATE")
+                    .Where(r => r.RoomCategoryID == categoryId
+                                && r.IsActivate == "ACTIVATE"
+                                && !blockedStatuses.Contains(r.RoomStatus))
                     .Where(r => !_context.ReservationForms.Any(rf =>
                         rf.RoomID == r.RoomID &&
                         rf.IsActivate == "ACTIVATE" &&
                         rf.CheckInDate < checkOutDate &&
-                        rf.CheckOutDate > checkInDate &&
-                        !_context.HistoryCheckins.Any(hc => hc.ReservationFormID == rf.ReservationFormID)
+                        ((_context.HistoryCheckOuts
+                            .Where(ho => ho.ReservationFormID == rf.ReservationFormID)
+                            .Max(ho => (DateTime?)ho.CheckOutDate) ?? rf.CheckOutDate) > checkInDate)
                     ))
                     .ToListAsync();
 
@@ -318,6 +323,7 @@ namespace HotelManagement.Controllers
                     {
                         roomID = room.RoomID,
                         roomStatus = room.RoomStatus,
+                        isBookable = true,
                         roomCategoryID = room.RoomCategoryID,
                         roomCategoryName = room.RoomCategory!.RoomCategoryName,
                         hourPrice = room.RoomCategory.Pricings!.FirstOrDefault(p => p.PriceUnit == "HOUR")?.Price,
@@ -337,6 +343,16 @@ namespace HotelManagement.Controllers
 
                 foreach (var room in allRooms)
                 {
+                    var hasOverlappingReservation = await _context.ReservationForms.AnyAsync(rf =>
+                        rf.RoomID == room.RoomID &&
+                        rf.IsActivate == "ACTIVATE" &&
+                        rf.CheckInDate < checkOutDate &&
+                        ((_context.HistoryCheckOuts
+                            .Where(ho => ho.ReservationFormID == rf.ReservationFormID)
+                            .Max(ho => (DateTime?)ho.CheckOutDate) ?? rf.CheckOutDate) > checkInDate));
+
+                    var isBookable = !blockedStatuses.Contains(room.RoomStatus) && !hasOverlappingReservation;
+
                     var upcomingReservation = await _context.ReservationForms
                         .Include(rf => rf.Customer)
                         .Where(rf => rf.RoomID == room.RoomID && rf.IsActivate == "ACTIVATE")
@@ -353,6 +369,7 @@ namespace HotelManagement.Controllers
                     {
                         roomID = room.RoomID,
                         roomStatus = room.RoomStatus,
+                        isBookable,
                         roomCategoryID = room.RoomCategoryID,
                         roomCategoryName = room.RoomCategory!.RoomCategoryName,
                         hourPrice = room.RoomCategory.Pricings!.FirstOrDefault(p => p.PriceUnit == "HOUR")?.Price,

@@ -2,6 +2,7 @@
 
 @{
     ViewData["Title"] = "Quản lý tài khoản";
+    var currentUserID = Context.Session.GetString("UserID");
 }
 
 <div class="page-header fade-in-up">
@@ -85,12 +86,21 @@
                             }
                         </td>
                         <td class="text-end">
-                            <form asp-action="Toggle" method="post" class="d-inline">
-                                <input type="hidden" name="id" value="@u.UserID" />
-                                <button type="submit" class="btn btn-warning-modern btn-sm">
-                                    <i class="fas fa-power-off"></i> @((u.IsActivate=="ACTIVATE")?"Khóa":"Mở khóa")
-                                </button>
-                            </form>
+                            @if (u.UserID == currentUserID)
+                            {
+                                <span class="badge-modern badge-info-modern me-1">
+                                    <i class="fas fa-user-check"></i> Tài khoản hiện tại
+                                </span>
+                            }
+                            else
+                            {
+                                <form asp-action="Toggle" method="post" class="d-inline">
+                                    <input type="hidden" name="id" value="@u.UserID" />
+                                    <button type="submit" class="btn btn-warning-modern btn-sm">
+                                        <i class="fas fa-power-off"></i> @((u.IsActivate=="ACTIVATE")?"Khóa":"Mở khóa")
+                                    </button>
+                                </form>
+                            }
                             <form asp-action="ResetPassword" method="post" class="d-inline" onsubmit="return confirm('Đặt lại mật khẩu về 123456?');">
                                 <input type="hidden" name="id" value="@u.UserID" />
                                 <input type="hidden" name="newPassword" value="123456" />
@@ -109,5 +119,4 @@
 
 <!-- Pagination -->
 @await Html.PartialAsync("_Pagination", Model)
-
 

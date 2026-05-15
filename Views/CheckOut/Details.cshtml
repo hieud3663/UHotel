@@ -5,6 +5,7 @@
     var checkin = Model.HistoryCheckin;
     var reservation = Model;
     var services = Model.RoomUsageServices;
+    var refundAmount = (decimal)(ViewBag.RefundAmount ?? 0m);
 }
 
 <!-- Page Header -->
@@ -232,6 +233,12 @@
                             <h3 class="text-danger mb-0" id="amountDueDisplay">@ViewBag.AmountDue.ToString("N0") VNĐ</h3>
                         </td>
                     </tr>
+                    <tr id="refundRow" class="bg-light" style="display: @(refundAmount > 0 ? "table-row" : "none");">
+                        <th class="h4 text-success">Cần hoàn lại cho khách:</th>
+                        <td class="text-end">
+                            <h3 class="text-success mb-0" id="refundAmountDisplay">@refundAmount.ToString("N0") VNĐ</h3>
+                        </td>
+                    </tr>
                 </table>
 
                 <div class="alert-modern alert-info-modern mt-3">
@@ -438,7 +445,9 @@
         const subTotal = roomCharge + serviceCharge;
         const taxAmount = subTotal * 0.1; 
         const totalAmount = subTotal + taxAmount;
-        const amountDue = totalAmount - deposit;
+        const balanceAfterDeposit = totalAmount - deposit;
+        const amountDue = Math.max(balanceAfterDeposit, 0);
+        const refundAmount = Math.max(-balanceAfterDeposit, 0);
         
         document.getElementById('displayTimeUnits').textContent = timeUnits;
         document.getElementById('roomChargeDisplay').textContent = Math.round(roomCharge).toLocaleString('vi-VN') + ' VNĐ';
@@ -446,6 +455,8 @@
         document.getElementById('taxAmountDisplay').textContent = Math.round(taxAmount).toLocaleString('vi-VN') + ' VNĐ';
         document.getElementById('totalAmountDisplay').textContent = Math.round(totalAmount).toLocaleString('vi-VN') + ' VNĐ';
         document.getElementById('amountDueDisplay').textContent = Math.round(amountDue).toLocaleString('vi-VN') + ' VNĐ';
+        document.getElementById('refundAmountDisplay').textContent = Math.round(refundAmount).toLocaleString('vi-VN') + ' VNĐ';
+        document.getElementById('refundRow').style.display = refundAmount > 0 ? 'table-row' : 'none';
     }
 
     // Cập nhật mỗi giây

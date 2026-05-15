@@ -65,7 +65,7 @@ namespace HotelManagement.Services
                     var endTime = DateTime.UtcNow.AddHours(7);
                     var duration = (endTime - startTime).TotalMilliseconds;
 
-                    _logger.LogInformation($"✅ Cập nhật thành công trong {duration}ms");
+                    _logger.LogInformation($"Cập nhật thành công trong {duration}ms");
 
                     var reservedRooms = await context.Rooms
                         .Where(r => r.RoomStatus == "RESERVED")

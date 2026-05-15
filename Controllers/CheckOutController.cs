@@ -19,6 +19,25 @@ namespace HotelManagement.Controllers
             return HttpContext.Session.GetString("UserID") != null;
         }
 
+        private static decimal CalculateGrossTotal(Invoice invoice)
+        {
+            return invoice.NetDue ?? invoice.RoomCharge + invoice.ServicesCharge + invoice.TaxAmount;
+        }
+
+        private static decimal CalculateAmountToCollect(Invoice invoice)
+        {
+            var paidAmount = Math.Max(invoice.AmountPaid, 0);
+            var balance = CalculateGrossTotal(invoice) - invoice.Deposit - paidAmount;
+            return Math.Round(Math.Max(balance, 0), 0);
+        }
+
+        private static decimal CalculateRefundAmount(Invoice invoice)
+        {
+            var paidAmount = Math.Max(invoice.AmountPaid, 0);
+            var balance = CalculateGrossTotal(invoice) - invoice.Deposit - paidAmount;
+            return Math.Round(Math.Max(-balance, 0), 0);
+        }
+
         // REMOVED: CalculateHourlyFee() - Không còn cần tính phí theo bậc thang
 
         public async Task<IActionResult> Index(string? phoneNumber = null, string? customerName = null, string? reservationId = null, int page = 1, int pageSize = 10)
@@ -153,7 +172,9 @@ namespace HotelManagement.Controllers
             var subTotal = roomCharge + servicesCharge;
             var taxAmount = subTotal * 0.1m; // VAT 10%
             var totalAmount = subTotal + taxAmount;
-            var amountDue = totalAmount - (decimal)reservation.RoomBookingDeposit;
+            var balanceAfterDeposit = totalAmount - (decimal)reservation.RoomBookingDeposit;
+            var amountDue = Math.Max(balanceAfterDeposit, 0);
+            var refundAmount = Math.Max(-balanceAfterDeposit, 0);
 
             // ViewBag cho CHECKOUT_THEN_PAY (tính đến hiện tại)
             ViewBag.RoomCharge = Math.Round(roomCharge, 0);
@@ -163,6 +184,7 @@ namespace HotelManagement.Controllers
             ViewBag.TotalAmount = Math.Round(totalAmount, 0);
             ViewBag.Deposit = Math.Round((decimal)reservation.RoomBookingDeposit, 0);
             ViewBag.AmountDue = Math.Round(amountDue, 0);
+            ViewBag.RefundAmount = Math.Round(refundAmount, 0);
 
             // ViewBag cho PAY_THEN_CHECKOUT (tính theo dự kiến)
             ViewBag.ExpectedRoomCharge = Math.Round(expectedRoomCharge, 0);
@@ -322,6 +344,50 @@ namespace HotelManagement.Controllers
             return View(invoice);
         }
 
+        [HttpGet]
+        public async Task<IActionResult> PaymentStatus(string invoiceID)
+        {
+            if (!CheckAuth())
+            {
+                return Unauthorized(new { isAuthenticated = false });
+            }
+
+            if (string.IsNullOrWhiteSpace(invoiceID))
+            {
+                return BadRequest(new { exists = false, message = "Thiếu mã hóa đơn." });
+            }
+
+            var invoice = await _context.Invoices
+                .AsNoTracking()
+                .Where(i => i.InvoiceID == invoiceID)
+                .Select(i => new
+                {
+                    i.InvoiceID,
+                    i.IsPaid,
+                    i.PaymentMethod,
+                    i.PaymentDate
+                })
+                .FirstOrDefaultAsync();
+
+            if (invoice == null)
+            {
+                return NotFound(new { exists = false, message = "Không tìm thấy hóa đơn." });
+            }
+
+            return Json(new
+            {
+                exists = true,
+                isPaid = invoice.IsPaid,
+                paymentMethod = invoice.PaymentMethod,
+                paymentDate = invoice.PaymentDate.HasValue
+                    ? invoice.PaymentDate.Value.ToString("dd/MM/yyyy HH:mm")
+                    : null,
+                redirectUrl = invoice.IsPaid
+                    ? Url.Action("Details", "Invoice", new { id = invoice.InvoiceID })
+                    : null
+            });
+        }
+
         // Bước 3: Xác nhận thanh toán cho invoice
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -332,6 +398,15 @@ namespace HotelManagement.Controllers
             try
             {
                 var employeeID = HttpContext.Session.GetString("EmployeeID");
+                var invoiceBeforePayment = await _context.Invoices
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(i => i.InvoiceID == invoiceID);
+                var amountToCollectBeforePayment = invoiceBeforePayment == null
+                    ? 0
+                    : CalculateAmountToCollect(invoiceBeforePayment);
+                var refundAmountBeforePayment = invoiceBeforePayment == null
+                    ? 0
+                    : CalculateRefundAmount(invoiceBeforePayment);
 
                 // Gọi SP để xác nhận thanh toán
                 // SP sẽ cập nhật isPaid = 1, paymentDate, paymentMethod
@@ -339,8 +414,22 @@ namespace HotelManagement.Controllers
 
                 if (result != null && result.Status == "PAYMENT_CONFIRMED")
                 {
+                    var invoice = await _context.Invoices.FirstOrDefaultAsync(i => i.InvoiceID == invoiceID);
+                    if (invoice != null)
+                    {
+                        if (invoice.AmountPaid != amountToCollectBeforePayment)
+                        {
+                            invoice.AmountPaid = amountToCollectBeforePayment;
+                            await _context.SaveChangesAsync();
+                        }
+                    }
+
                     await CreateCleaningTaskAfterCheckout(invoiceID: invoiceID, employeeID: employeeID);
-                    TempData["Success"] = "Thanh toán thành công! Phòng đã được chuyển sang trạng thái cần dọn.";
+                    TempData["Success"] = refundAmountBeforePayment > 0
+                        ? $"Đã hoàn tất hóa đơn. Không thu thêm tiền; cần hoàn lại cho khách {refundAmountBeforePayment:N0} VNĐ. Phòng đã được chuyển sang trạng thái cần dọn."
+                        : amountToCollectBeforePayment == 0
+                            ? "Đã hoàn tất hóa đơn 0đ. Phòng đã được chuyển sang trạng thái cần dọn."
+                            : "Thanh toán thành công! Phòng đã được chuyển sang trạng thái cần dọn.";
                     return RedirectToAction("Details", "Invoice", new { id = invoiceID });
                 }
                 else
@@ -364,7 +453,7 @@ namespace HotelManagement.Controllers
         {
             var api_key = HttpContext.Request.Headers["Authorization"].FirstOrDefault();
             api_key = api_key?.Replace("Apikey ", ""); // Loại bỏ "Apikey " nếu có
-            var expected_api_key = Environment.GetEnvironmentVariable("WEBHOOK_API_KEY");
+            var expected_api_key = Environment.GetEnvironmentVariable("WEBHOOK_API_KEY") ?? "123456789"; // Lấy từ biến môi trường hoặc fallback giá trị mặc định
 
             if (api_key != expected_api_key)
             {
@@ -419,8 +508,10 @@ namespace HotelManagement.Controllers
                     });
                 }
 
+                var amountToCollect = CalculateAmountToCollect(invoice);
+
                 // Kiểm tra số tiền thanh toán
-                if (amount <= 0 || amount != invoice.TotalAmount)
+                if (amountToCollect <= 0 || amount <= 0 || amount != amountToCollect)
                 {
                     return BadRequest(new
                     {
@@ -435,6 +526,13 @@ namespace HotelManagement.Controllers
 
                 if (result != null && result.Status == "PAYMENT_CONFIRMED")
                 {
+                    var confirmedInvoice = await _context.Invoices.FirstOrDefaultAsync(i => i.InvoiceID == invoiceID);
+                    if (confirmedInvoice != null && confirmedInvoice.AmountPaid != amountToCollect)
+                    {
+                        confirmedInvoice.AmountPaid = amountToCollect;
+                        await _context.SaveChangesAsync();
+                    }
+
                     await CreateCleaningTaskAfterCheckout(invoiceID: invoiceID, employeeID: null);
 
                     return Ok(new

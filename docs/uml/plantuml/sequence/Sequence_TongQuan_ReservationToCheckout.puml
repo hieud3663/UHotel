@@ -63,27 +63,16 @@ CheckOut -> SQL: Truy vấn phiếu đặt phòng, phòng, dịch vụ và hóa 
 SQL --> CheckOut: Trả dữ liệu chi phí
 CheckOut --> View: Hiển thị tổng chi phí
 
-alt Trả phòng trước, thanh toán sau
-  Staff -> View: Chọn trả phòng trước
-  View -> CheckOut: Gửi yêu cầu trả phòng trước
-  CheckOut -> DbExt: Gọi xử lý tạo hóa đơn trả phòng trước
-  DbExt -> SQL: Chạy thủ tục tạo hóa đơn trả phòng trước
-  SQL --> DbExt: Kết quả hóa đơn
-  CheckOut --> View: Mở màn hình thanh toán
-  Staff -> View: Xác nhận thanh toán
-  View -> CheckOut: Gửi yêu cầu xác nhận thanh toán
-  CheckOut -> DbExt: Gọi xử lý xác nhận thanh toán
-  DbExt -> SQL: Chạy thủ tục xác nhận thanh toán
-else Thanh toán trước, trả phòng sau
-  Staff -> View: Chọn thanh toán trước
-  View -> CheckOut: Gửi yêu cầu thanh toán trước
-  CheckOut -> DbExt: Gọi xử lý tạo hóa đơn thanh toán trước
-  DbExt -> SQL: Chạy thủ tục tạo hóa đơn thanh toán trước
-  Staff -> View: Thực hiện trả phòng thực tế
-  View -> CheckOut: Gửi yêu cầu trả phòng sau thanh toán trước
-  CheckOut -> DbExt: Gọi xử lý trả phòng thực tế
-  DbExt -> SQL: Chạy thủ tục trả phòng sau thanh toán trước
-end
+Staff -> View: Chọn trả phòng rồi thanh toán
+View -> CheckOut: Gửi yêu cầu trả phòng
+CheckOut -> DbExt: Gọi xử lý tạo hóa đơn trả phòng
+DbExt -> SQL: Chạy thủ tục tạo hóa đơn trả phòng
+SQL --> DbExt: Kết quả hóa đơn
+CheckOut --> View: Mở màn hình thanh toán
+Staff -> View: Xác nhận thanh toán
+View -> CheckOut: Gửi yêu cầu xác nhận thanh toán
+CheckOut -> DbExt: Gọi xử lý xác nhận thanh toán
+DbExt -> SQL: Chạy thủ tục xác nhận thanh toán
 
 CheckOut -> RoomOps: Yêu cầu tạo công việc dọn phòng sau trả phòng
 RoomOps -> DbExt: Gọi tạo công việc dọn phòng

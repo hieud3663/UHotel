@@ -20,7 +20,7 @@ namespace HotelManagement.Controllers
             return HttpContext.Session.GetString("UserID") != null;
         }
 
-        public async Task<IActionResult> Index(int page = 1, int pageSize = 10)
+        public async Task<IActionResult> Index(string? phoneNumber = null, string? customerName = null, string? reservationId = null, int page = 1, int pageSize = 10)
         {
             if (!CheckAuth()) return RedirectToAction("Login", "Auth");
             
@@ -30,10 +30,24 @@ namespace HotelManagement.Controllers
                 .ThenInclude(ro => ro!.RoomCategory)
                 .Include(r => r.Employee)
                 .Include(r => r.HistoryCheckin)
-                .Where(r => r.IsActivate == "ACTIVATE")
-                .OrderByDescending(r => r.ReservationDate);
+                .Where(r => r.IsActivate == "ACTIVATE");
+
+            if (!string.IsNullOrEmpty(phoneNumber))
+            {
+                query = query.Where(r => r.Customer!.PhoneNumber.Contains(phoneNumber));
+            }
+
+            if (!string.IsNullOrEmpty(customerName))
+            {
+                query = query.Where(r => r.Customer!.FullName.Contains(customerName));
+            }
+
+            if (!string.IsNullOrEmpty(reservationId))
+            {
+                query = query.Where(r => r.ReservationFormID.Contains(reservationId));
+            }
             
-            var reservations = await PagedList<ReservationForm>.CreateAsync(query, page, pageSize);
+            var reservations = await PagedList<ReservationForm>.CreateAsync(query.OrderByDescending(r => r.ReservationDate), page, pageSize);
             
             // Đánh dấu phiếu đặt phòng quá hạn
             ViewBag.OverdueReservations = reservations
@@ -42,6 +56,9 @@ namespace HotelManagement.Controllers
                 .ToHashSet();
             
             ViewBag.PageSize = pageSize;
+            ViewBag.PhoneNumber = phoneNumber;
+            ViewBag.CustomerName = customerName;
+            ViewBag.ReservationId = reservationId;
             return View(reservations);
         }
 
@@ -83,7 +100,12 @@ namespace HotelManagement.Controllers
             ViewData["RoomID"] = new SelectList(
                 await _context.Rooms
                     .Include(r => r.RoomCategory)
-                    .Where(r => r.RoomStatus == "AVAILABLE" && r.IsActivate == "ACTIVATE").ToListAsync(), 
+                    .Where(r => r.IsActivate == "ACTIVATE"
+                                && r.RoomStatus != "UNAVAILABLE"
+                                && r.RoomStatus != "OVERDUE"
+                                && r.RoomStatus != "MAINTENANCE"
+                                && r.RoomStatus != "OUT_OF_SERVICE")
+                    .ToListAsync(), 
                 "RoomID", "RoomID");
             
             // Load all rooms with category info and pricing for grid display

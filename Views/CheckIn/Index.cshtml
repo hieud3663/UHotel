@@ -2,6 +2,10 @@
 
 @{
     ViewData["Title"] = "Check-in";
+    var hasSearchFilter = !string.IsNullOrEmpty(ViewBag.PhoneNumber as string)
+        || !string.IsNullOrEmpty(ViewBag.CustomerName as string)
+        || !string.IsNullOrEmpty(ViewBag.ReservationId as string);
+    var occupiedRoomIds = ViewBag.OccupiedRoomIds as List<string> ?? new List<string>();
 }
 
 <!-- Page Header -->
@@ -36,6 +40,54 @@
     </div>
 } *@
 
+<!-- Search Form -->
+<div class="card-modern fade-in-up mb-4">
+    <div class="card-header-modern">
+        <span><i class="fas fa-search me-2"></i>Tìm kiếm Check-in</span>
+    </div>
+    <div class="card-body-modern">
+        <form id="searchForm" method="get" class="row g-3">
+            <div class="col-md-4">
+                <label for="phoneNumber" class="form-label">
+                    <i class="fas fa-phone"></i> Số điện thoại
+                </label>
+                <input type="text" class="form-control" id="phoneNumber" name="phoneNumber"
+                       placeholder="Nhập số điện thoại..." value="@ViewBag.PhoneNumber">
+            </div>
+            <div class="col-md-4">
+                <label for="customerName" class="form-label">
+                    <i class="fas fa-user"></i> Tên khách hàng
+                </label>
+                <input type="text" class="form-control" id="customerName" name="customerName"
+                       placeholder="Nhập tên khách hàng..." value="@ViewBag.CustomerName">
+            </div>
+            <div class="col-md-4">
+                <label for="reservationId" class="form-label">
+                    <i class="fas fa-hashtag"></i> Mã phiếu đặt phòng
+                </label>
+                <input type="text" class="form-control" id="reservationId" name="reservationId"
+                       placeholder="Nhập mã phiếu..." value="@ViewBag.ReservationId">
+            </div>
+            <div class="col-12">
+                <div class="d-flex gap-2 flex-wrap">
+                    <button type="submit" class="btn btn-primary-modern">
+                        <i class="fas fa-search"></i> Tìm kiếm
+                    </button>
+                    <a href="@Url.Action("Index")" class="btn btn-secondary-modern">
+                        <i class="fas fa-refresh"></i> Làm mới
+                    </a>
+                    @if (hasSearchFilter)
+                    {
+                        <span class="badge-modern badge-info-modern align-self-center">
+                            <i class="fas fa-filter"></i> Đang lọc kết quả
+                        </span>
+                    }
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Main Content -->
 <div class="card-modern fade-in-up">
     <div class="card-header-modern d-flex justify-content-between align-items-center">
@@ -48,6 +100,34 @@
         @if (!Model.Any())
         {
             <div class="text-center py-5">
+                @if (hasSearchFilter)
+                {
+                    <div class="empty-search-results">
+                        <i class="fas fa-search"></i>
+                        <h4 class="text-muted mb-3">Không tìm thấy kết quả</h4>
+                        <p class="text-muted mb-4">Không có phiếu đặt phòng nào phù hợp với tiêu chí tìm kiếm</p>
+                        <div class="mb-3">
+                            <small class="text-muted">Từ khóa tìm kiếm:</small>
+                            @if (!string.IsNullOrEmpty(ViewBag.PhoneNumber as string))
+                            {
+                                <span class="badge-modern badge-info-modern me-2">SĐT: @ViewBag.PhoneNumber</span>
+                            }
+                            @if (!string.IsNullOrEmpty(ViewBag.CustomerName as string))
+                            {
+                                <span class="badge-modern badge-info-modern me-2">Tên: @ViewBag.CustomerName</span>
+                            }
+                            @if (!string.IsNullOrEmpty(ViewBag.ReservationId as string))
+                            {
+                                <span class="badge-modern badge-info-modern me-2">Mã: @ViewBag.ReservationId</span>
+                            }
+                        </div>
+                        <a href="@Url.Action("Index")" class="btn btn-primary-modern">
+                            <i class="fas fa-refresh"></i> Xóa bộ lọc
+                        </a>
+                    </div>
+                }
+                else
+                {
                 <div class="stats-icon info mx-auto mb-4">
                     <i class="fas fa-inbox"></i>
                 </div>
@@ -56,6 +136,7 @@
                 <a href="@Url.Action("Index", "Reservation")" class="btn btn-primary-modern mt-3">
                     <i class="fas fa-calendar-plus"></i> Tạo đặt phòng mới
                 </a>
+                }
             </div>
         }
         else
@@ -79,7 +160,14 @@
                         {
                             var isOverdue = ViewBag.OverdueReservations != null && 
                                            ((HashSet<string>)ViewBag.OverdueReservations).Contains(item.ReservationFormID ?? "");
-                            var rowClass = isOverdue ? "table-danger" : "";
+                            var isRoomOccupied = !string.IsNullOrEmpty(item.RoomID) && occupiedRoomIds.Contains(item.RoomID);
+                            var roomStatus = item.Room?.RoomStatus ?? "";
+                            var isRoomStatusBlocked = !string.IsNullOrEmpty(roomStatus)
+                                && roomStatus != "AVAILABLE"
+                                && roomStatus != "RESERVED"
+                                && !isRoomOccupied;
+                            var canCheckIn = !isOverdue && !isRoomOccupied && !isRoomStatusBlocked;
+                            var rowClass = isOverdue ? "table-danger" : isRoomOccupied ? "table-warning" : "";
                             
                             <tr class="@rowClass" data-reservation-id="@item.ReservationFormID">
                                 <td>
@@ -105,6 +193,20 @@
                                     <span class="badge-modern badge-info-modern">
                                         <i class="fas fa-bed"></i> @item.RoomID
                                     </span>
+                                    @if (isRoomOccupied)
+                                    {
+                                        <br />
+                                        <span class="badge bg-warning text-dark mt-1">
+                                            <i class="fas fa-user-clock"></i> Phòng đang có khách
+                                        </span>
+                                    }
+                                    else if (isRoomStatusBlocked)
+                                    {
+                                        <br />
+                                        <span class="badge bg-secondary mt-1">
+                                            <i class="fas fa-ban"></i> @roomStatus
+                                        </span>
+                                    }
                                 </td>
                                 <td>@item.Room?.RoomCategory?.RoomCategoryName</td>
                                 <td>
@@ -133,7 +235,8 @@
                                             <button type="submit" 
                                                     class="btn btn-success-modern btn-sm" 
                                                     onclick="return confirm('Xác nhận check-in cho khách @item.Customer?.FullName?');"
-                                                    @(isOverdue ? "disabled" : "")>
+                                                    title="@(isRoomOccupied ? "Chờ khách trước checkout" : isRoomStatusBlocked ? "Phòng chưa khả dụng để check-in" : isOverdue ? "Phiếu đã quá hạn" : "Check-in")"
+                                                    @(!canCheckIn ? "disabled" : "")>
                                                 <i class="fas fa-check"></i> Check-in
                                             </button>
                                         </form>

@@ -51,7 +51,7 @@ jobs:
         
         while [ $attempt -lt $max_attempts ]; do
           if curl -f http://localhost:5153/ 2>/dev/null; then
-            echo "✅ Application is healthy!"
+            echo "Application is healthy!"
             exit 0
           fi
           

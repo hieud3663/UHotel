@@ -288,7 +288,7 @@
                         $('#readyCount').text(response.readyToUpdate);
                         $('#lastUpdate').text(new Date().toLocaleTimeString('vi-VN'));
                         
-                        addLog(`✅ Tải thành công ${response.count} reservations (${response.readyToUpdate} sẵn sàng)`, 'success');
+                        addLog(`Tải thành công ${response.count} reservations (${response.readyToUpdate} sẵn sàng)`, 'success');
                     } else {
                         addLog(`❌ Lỗi: ${response.message}`, 'error');
                     }

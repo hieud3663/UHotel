@@ -129,6 +129,13 @@ namespace HotelManagement.Controllers
             var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == id && u.Role != "ADMIN");
             if (user == null) return NotFound();
 
+            var currentUserID = HttpContext.Session.GetString("UserID");
+            if (user.UserID == currentUserID)
+            {
+                TempData["Error"] = "Không thể khóa hoặc mở khóa tài khoản đang đăng nhập.";
+                return RedirectToAction(nameof(Index));
+            }
+
             user.IsActivate = user.IsActivate == "ACTIVATE" ? "DEACTIVATE" : "ACTIVATE";
             _context.Users.Update(user);
             await _context.SaveChangesAsync();
@@ -162,5 +169,4 @@ namespace HotelManagement.Controllers
         }
     }
 }
-
 

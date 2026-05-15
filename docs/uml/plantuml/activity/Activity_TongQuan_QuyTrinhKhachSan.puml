@@ -65,14 +65,8 @@ partition "Vòng đời lưu trú" {
     :Chuyển đơn vị giá thuê;
   endif
 
-  if (Chọn cách xử lý thanh toán?) then (Trả phòng rồi thanh toán)
-    :Tạo hóa đơn trả phòng rồi thanh toán;
-    :Xác nhận thanh toán;
-  else (Thanh toán trước rồi trả phòng)
-    :Tạo hóa đơn thanh toán trước;
-    :Xác nhận thanh toán;
-    :Thực hiện trả phòng thực tế sau thanh toán;
-  endif
+  :Tạo hóa đơn trả phòng rồi thanh toán;
+  :Xác nhận thanh toán;
 
   :Tạo lịch sử trả phòng;
   :Tạo yêu cầu dọn phòng sau trả phòng;

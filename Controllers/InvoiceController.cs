@@ -19,7 +19,7 @@ namespace HotelManagement.Controllers
             return HttpContext.Session.GetString("UserID") != null;
         }
 
-        public async Task<IActionResult> Index(string searchTerm, string paymentStatus, int page = 1, int pageSize = 10)
+        public async Task<IActionResult> Index(string searchTerm, string paymentStatus, DateTime? fromDate, DateTime? toDate, int page = 1, int pageSize = 10)
         {
             if (!CheckAuth()) return RedirectToAction("Login", "Auth");
 
@@ -58,6 +58,27 @@ namespace HotelManagement.Controllers
                 
                 ViewBag.PaymentStatus = paymentStatus.ToLower();
             }
+
+            if (fromDate.HasValue)
+            {
+                var startDate = fromDate.Value.Date;
+                query = query.Where(i => i.InvoiceDate >= startDate);
+                ViewBag.FromDate = startDate.ToString("yyyy-MM-dd");
+            }
+
+            if (toDate.HasValue)
+            {
+                var endDateExclusive = toDate.Value.Date.AddDays(1);
+                query = query.Where(i => i.InvoiceDate < endDateExclusive);
+                ViewBag.ToDate = toDate.Value.Date.ToString("yyyy-MM-dd");
+            }
+
+            ViewBag.TotalInvoices = await query.CountAsync();
+            ViewBag.PaidInvoices = await query.CountAsync(i => i.IsPaid);
+            ViewBag.UnpaidInvoices = await query.CountAsync(i => !i.IsPaid);
+            ViewBag.TotalRevenue = await query.SumAsync(i => (decimal?)i.NetDue) ?? 0;
+            ViewBag.PaidRevenue = await query.Where(i => i.IsPaid).SumAsync(i => (decimal?)i.NetDue) ?? 0;
+            ViewBag.UnpaidRevenue = await query.Where(i => !i.IsPaid).SumAsync(i => (decimal?)i.NetDue) ?? 0;
 
             // Apply ordering at the end
             query = query.OrderByDescending(i => i.InvoiceDate);

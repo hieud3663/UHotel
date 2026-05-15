@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Quản lý Khách sạn UHOTEL</title>
+    <link rel="icon" type="image/png" href="~/img/uhotel.png" asp-append-version="true" />
     <script type="importmap"></script>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,8 +24,9 @@
     <header>
         <nav class="navbar navbar-expand-lg navbar-toggleable-lg navbar-custom">
             <div class="container-fluid px-4">
-                <a class="navbar-brand" asp-area="" asp-controller="Dashboard" asp-action="Index">
-                    <i class="fas fa-hotel"></i> Quản lý Khách sạn UHOTEL
+                <a class="navbar-brand" asp-area="" asp-controller="Dashboard" asp-action="Index" aria-label="UHOTEL - Trang chủ">
+                    <img src="~/img/uhotel.png" asp-append-version="true" alt="UHOTEL" class="navbar-logo" />
+                    <span>Quản lý Khách sạn UHOTEL</span>
                 </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
                         aria-expanded="false" aria-label="Toggle navigation">
@@ -71,12 +73,13 @@
                                 </ul>
                             </li>
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                                    <i class="fas fa-bed"></i> Phòng
-                                </a>
-                                <ul class="dropdown-menu">
-                                    @if (isManagerOrAdmin)
-                                    {
+                                @if (isManagerOrAdmin)
+                                {
+                                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                        <i class="fas fa-bed"></i> Phòng
+                                    </a>
+                                    <ul class="dropdown-menu">
+                                    
                                         <li><a class="dropdown-item" asp-controller="Room" asp-action="Index">
                                             <i class="fas fa-door-open"></i> Danh sách phòng
                                         </a></li>
@@ -84,12 +87,14 @@
                                             <i class="fas fa-th-large"></i> Loại phòng & Giá
                                         </a></li>
                                         <li><hr class="dropdown-divider"></li>
-                                    }
-                                    <li><a class="dropdown-item" asp-controller="RoomMaintenanceCleaning" asp-action="Index">
-                                        <i class="fas fa-broom"></i> Bảo trì & dọn phòng
-                                    </a></li>
-                                </ul>
+                                        <li><a class="dropdown-item" asp-controller="RoomMaintenanceCleaning" asp-action="Index">
+                                            <i class="fas fa-broom"></i> Bảo trì & dọn phòng
+                                        </a></li>
+                                    </ul>
+                                }
+
                             </li>
+
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                                     <i class="fas fa-file-invoice-dollar"></i> Tài chính
@@ -181,9 +186,9 @@
 
     <footer class="footer-modern text-center">
         <div class="container">
-            <p class="mb-0 text-muted">
-                <i class="fas fa-hotel text-primary"></i>
-                &copy; 2025 - Hệ thống Quản lý Khách sạn UHOTEL
+            <p class="mb-0 text-muted footer-brand">
+                <img src="~/img/uhotel.png" asp-append-version="true" alt="UHOTEL" class="footer-logo" />
+                <span>&copy; 2025 - Hệ thống Quản lý Khách sạn UHOTEL</span>
             </p>
         </div>
     </footer>

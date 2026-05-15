@@ -29,6 +29,50 @@ namespace HotelManagement.Controllers
             return role == "MANAGER" || role == "ADMIN";
         }
 
+        private string CurrentRole => HttpContext.Session.GetString("Role") ?? string.Empty;
+
+        private bool IsRoomOperationsRole()
+        {
+            return CurrentRole == "CLEANER" || CurrentRole == "TECHNICIAN";
+        }
+
+        private bool CanAccessRoomTaskModule()
+        {
+            return IsManagerOrAdmin() || CurrentRole == "EMPLOYEE" || IsRoomOperationsRole();
+        }
+
+        private string? GetRoleLimitedTaskType()
+        {
+            return CurrentRole switch
+            {
+                "CLEANER" => RoomTaskTypes.Cleaning,
+                "TECHNICIAN" => RoomTaskTypes.Maintenance,
+                _ => null
+            };
+        }
+
+        private bool CanViewTask(RoomTask roomTask)
+        {
+            var limitedTaskType = GetRoleLimitedTaskType();
+            if (limitedTaskType != null && roomTask.TaskType != limitedTaskType)
+            {
+                return false;
+            }
+
+            if (IsRoomOperationsRole())
+            {
+                return !string.IsNullOrWhiteSpace(CurrentEmployeeID) &&
+                       roomTask.AssignedEmployeeID == CurrentEmployeeID;
+            }
+
+            return true;
+        }
+
+        private bool CanCreateRoomTask()
+        {
+            return !IsRoomOperationsRole();
+        }
+
         private string? CurrentEmployeeID => HttpContext.Session.GetString("EmployeeID");
 
         public async Task<IActionResult> Index(
@@ -44,6 +88,14 @@ namespace HotelManagement.Controllers
             int pageSize = 10)
         {
             if (!CheckAuth()) return RedirectToAction("Login", "Auth");
+            if (!CanAccessRoomTaskModule()) return Forbid();
+
+            var limitedTaskType = GetRoleLimitedTaskType();
+            if (limitedTaskType != null)
+            {
+                taskType = limitedTaskType;
+                assignedEmployeeID = CurrentEmployeeID;
+            }
 
             var query = BuildRoomTaskQuery(searchRoom, taskType, status, priority, assignedEmployeeID, fromDate, toDate, overdueOnly);
             var now = DateTime.UtcNow.AddHours(7);
@@ -71,6 +123,8 @@ namespace HotelManagement.Controllers
             await LoadFilterData(assignedEmployeeID);
             ViewBag.SearchRoom = searchRoom;
             ViewBag.TaskType = taskType;
+            ViewBag.LimitedTaskType = limitedTaskType;
+            ViewBag.IsRoomOperationsRole = IsRoomOperationsRole();
             ViewBag.Status = status;
             ViewBag.Priority = priority;
             ViewBag.AssignedEmployeeID = assignedEmployeeID;
@@ -89,6 +143,7 @@ namespace HotelManagement.Controllers
         public async Task<IActionResult> Details(string id)
         {
             if (!CheckAuth()) return RedirectToAction("Login", "Auth");
+            if (!CanAccessRoomTaskModule()) return Forbid();
 
             var roomTask = await _context.RoomTasks
                 .Include(t => t.Room)
@@ -104,12 +159,18 @@ namespace HotelManagement.Controllers
                 return NotFound();
             }
 
+            if (!CanViewTask(roomTask))
+            {
+                return Forbid();
+            }
+
             return View(roomTask);
         }
 
         public async Task<IActionResult> CreateCleaningTask(string? roomID = null)
         {
             if (!CheckAuth()) return RedirectToAction("Login", "Auth");
+            if (!CanCreateRoomTask()) return Forbid();
 
             await LoadFormData(roomID);
 
@@ -131,6 +192,7 @@ namespace HotelManagement.Controllers
         public async Task<IActionResult> CreateCleaningTask(RoomTask roomTask, bool forceCreate = false)
         {
             if (!CheckAuth()) return RedirectToAction("Login", "Auth");
+            if (!CanCreateRoomTask()) return Forbid();
 
             try
             {
@@ -189,6 +251,7 @@ namespace HotelManagement.Controllers
         public async Task<IActionResult> CreateMaintenanceTask(string? roomID = null)
         {
             if (!CheckAuth()) return RedirectToAction("Login", "Auth");
+            if (!CanCreateRoomTask()) return Forbid();
 
             await LoadFormData(roomID);
 
@@ -210,6 +273,7 @@ namespace HotelManagement.Controllers
         public async Task<IActionResult> CreateMaintenanceTask(RoomTask roomTask, bool forceCreate = false)
         {
             if (!CheckAuth()) return RedirectToAction("Login", "Auth");
+            if (!CanCreateRoomTask()) return Forbid();
 
             try
             {
@@ -280,6 +344,11 @@ namespace HotelManagement.Controllers
                 return NotFound();
             }
 
+            if (!CanViewTask(roomTask))
+            {
+                return Forbid();
+            }
+
             if (IsClosed(roomTask))
             {
                 TempData["Warning"] = "Công việc đã kết thúc, không thể phân công.";
@@ -301,6 +370,11 @@ namespace HotelManagement.Controllers
             if (roomTask == null)
             {
                 return NotFound();
+            }
+
+            if (!CanViewTask(roomTask))
+            {
+                return Forbid();
             }
 
             if (IsClosed(roomTask))
@@ -343,6 +417,11 @@ namespace HotelManagement.Controllers
             if (roomTask == null)
             {
                 return NotFound();
+            }
+
+            if (!CanViewTask(roomTask))
+            {
+                return Forbid();
             }
 
             if (IsClosed(roomTask))
@@ -388,6 +467,11 @@ namespace HotelManagement.Controllers
             if (roomTask == null)
             {
                 return NotFound();
+            }
+
+            if (!CanViewTask(roomTask))
+            {
+                return Forbid();
             }
 
             if (IsClosed(roomTask))
@@ -584,6 +668,7 @@ namespace HotelManagement.Controllers
         public async Task<IActionResult> History(string? roomID = null, string? employeeID = null, int page = 1, int pageSize = 10)
         {
             if (!CheckAuth()) return RedirectToAction("Login", "Auth");
+            if (IsRoomOperationsRole()) return Forbid();
 
             var query = _context.RoomTaskHistories
                 .Include(h => h.RoomTask)

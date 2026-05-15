@@ -58,7 +58,9 @@ namespace HotelManagement.Controllers
             ViewBag.AvailableRoles = new List<object>
             {
                 new { Value = "EMPLOYEE", Text = "Nhân viên (EMPLOYEE)" },
-                new { Value = "MANAGER", Text = "Quản lý (MANAGER)" }
+                new { Value = "MANAGER", Text = "Quản lý (MANAGER)" },
+                new { Value = "CLEANER", Text = "Nhân viên dọn phòng (CLEANER)" },
+                new { Value = "TECHNICIAN", Text = "Nhân viên kỹ thuật (TECHNICIAN)" }
             };
 
             return View();
@@ -80,7 +82,7 @@ namespace HotelManagement.Controllers
             }
 
             // Validate role
-            if (role != "EMPLOYEE" && role != "MANAGER")
+            if (role != "EMPLOYEE" && role != "MANAGER" && role != "CLEANER" && role != "TECHNICIAN")
             {
                 TempData["Error"] = "Quyền tài khoản không hợp lệ.";
                 return RedirectToAction(nameof(Create));
@@ -169,4 +171,3 @@ namespace HotelManagement.Controllers
         }
     }
 }
-

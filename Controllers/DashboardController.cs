@@ -20,6 +20,12 @@ namespace HotelManagement.Controllers
                 return RedirectToAction("Login", "Auth");
             }
 
+            var role = HttpContext.Session.GetString("Role");
+            if (role == "CLEANER" || role == "TECHNICIAN")
+            {
+                return RedirectToAction("Index", "RoomMaintenanceCleaning");
+            }
+
             // Background Service đã tự động cập nhật trạng thái phòng mỗi 30 phút
             // Không cần gọi thủ công nữa
 
@@ -44,7 +50,7 @@ namespace HotelManagement.Controllers
             ViewBag.MonthlyRevenue = totalRevenue;
 
             ViewBag.Username = HttpContext.Session.GetString("Username");
-            ViewBag.Role = HttpContext.Session.GetString("Role");
+            ViewBag.Role = role;
 
             return View();
         }

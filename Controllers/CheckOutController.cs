@@ -526,12 +526,10 @@ namespace HotelManagement.Controllers
 
                 if (result != null && result.Status == "PAYMENT_CONFIRMED")
                 {
-                    var confirmedInvoice = await _context.Invoices.FirstOrDefaultAsync(i => i.InvoiceID == invoiceID);
-                    if (confirmedInvoice != null && confirmedInvoice.AmountPaid != amountToCollect)
-                    {
-                        confirmedInvoice.AmountPaid = amountToCollect;
-                        await _context.SaveChangesAsync();
-                    }
+                    await _context.Database.ExecuteSqlRawAsync(
+                        "UPDATE Invoice SET amountPaid = {0} WHERE invoiceID = {1} AND amountPaid <> {0}",
+                        amountToCollect,
+                        invoiceID);
 
                     await CreateCleaningTaskAfterCheckout(invoiceID: invoiceID, employeeID: null);
 

@@ -20,11 +20,17 @@
     <link rel="stylesheet" href="~/css/custom.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
-<body class="@(Context.Session.GetString("Role") == "EMPLOYEE" ? "employee-theme" : "")">
+@{
+    var layoutRole = Context.Session.GetString("Role") ?? string.Empty;
+    var layoutHomeController = layoutRole == "CLEANER" || layoutRole == "TECHNICIAN"
+        ? "RoomMaintenanceCleaning"
+        : "Dashboard";
+}
+<body class="@(layoutRole == "EMPLOYEE" ? "employee-theme" : "")">
     <header>
         <nav class="navbar navbar-expand-lg navbar-toggleable-lg navbar-custom">
             <div class="container-fluid px-4">
-                <a class="navbar-brand" asp-area="" asp-controller="Dashboard" asp-action="Index" aria-label="UHOTEL - Trang chủ">
+                <a class="navbar-brand" asp-area="" asp-controller="@layoutHomeController" asp-action="Index" aria-label="UHOTEL - Trang chủ">
                     <img src="~/img/uhotel.png" asp-append-version="true" alt="UHOTEL" class="navbar-logo" />
                     <span>Quản lý Khách sạn UHOTEL</span>
                 </a>
@@ -38,40 +44,58 @@
                         var role = Context.Session.GetString("Role") ?? string.Empty;
                         var isManagerOrAdmin = role == "MANAGER" || role == "ADMIN";
                         var isEmployee = role == "EMPLOYEE";
+                        var isRoomOperations = role == "CLEANER" || role == "TECHNICIAN";
+                        var roomOperationsLabel = role == "CLEANER"
+                            ? "Dọn phòng"
+                            : role == "TECHNICIAN"
+                                ? "Bảo trì"
+                                : "Bảo trì & dọn phòng";
+                        var roomOperationsIcon = role == "TECHNICIAN" ? "fas fa-tools" : "fas fa-broom";
 
                         <ul class="navbar-nav flex-grow-1">
-                            <li class="nav-item">
-                                <a class="nav-link" asp-area="" asp-controller="Dashboard" asp-action="Index">
-                                    <i class="fas fa-dashboard"></i> Trang chủ
-                                </a>
-                            </li>
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                                    <i class="fas fa-concierge-bell"></i> Lễ tân
-                                </a>
-                                <ul class="dropdown-menu">
-                                    <li><a class="dropdown-item" asp-controller="Reservation" asp-action="Index">
-                                        <i class="fas fa-calendar-check"></i> Đặt phòng
-                                    </a></li>
-                                    <li><a class="dropdown-item" asp-controller="BookingCalendar" asp-action="Index">
-                                        <i class="fas fa-calendar-alt"></i> Lịch đặt phòng
-                                    </a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item" asp-controller="CheckIn" asp-action="Index">
-                                        <i class="fas fa-sign-in-alt"></i> Check-in
-                                    </a></li>
-                                    <li><a class="dropdown-item" asp-controller="CheckOut" asp-action="Index">
-                                        <i class="fas fa-sign-out-alt"></i> Check-out
-                                    </a></li>
-                                    @if (isEmployee)
-                                    {
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li><a class="dropdown-item" asp-controller="Customer" asp-action="Create">
-                                            <i class="fas fa-user-plus"></i> Thêm khách hàng
+                            @if (isRoomOperations)
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="RoomMaintenanceCleaning" asp-action="Index">
+                                        <i class="@roomOperationsIcon"></i> @roomOperationsLabel
+                                    </a>
+                                </li>
+                            }
+                            else
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-area="" asp-controller="Dashboard" asp-action="Index">
+                                        <i class="fas fa-dashboard"></i> Trang chủ
+                                    </a>
+                                </li>
+                                <li class="nav-item dropdown">
+                                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                        <i class="fas fa-concierge-bell"></i> Lễ tân
+                                    </a>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" asp-controller="Reservation" asp-action="Index">
+                                            <i class="fas fa-calendar-check"></i> Đặt phòng
                                         </a></li>
-                                    }
-                                </ul>
-                            </li>
+                                        <li><a class="dropdown-item" asp-controller="BookingCalendar" asp-action="Index">
+                                            <i class="fas fa-calendar-alt"></i> Lịch đặt phòng
+                                        </a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item" asp-controller="CheckIn" asp-action="Index">
+                                            <i class="fas fa-sign-in-alt"></i> Check-in
+                                        </a></li>
+                                        <li><a class="dropdown-item" asp-controller="CheckOut" asp-action="Index">
+                                            <i class="fas fa-sign-out-alt"></i> Check-out
+                                        </a></li>
+                                        @if (isEmployee)
+                                        {
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><a class="dropdown-item" asp-controller="Customer" asp-action="Create">
+                                                <i class="fas fa-user-plus"></i> Thêm khách hàng
+                                            </a></li>
+                                        }
+                                    </ul>
+                                </li>
+                            }
                             <li class="nav-item dropdown">
                                 @if (isManagerOrAdmin)
                                 {
@@ -95,22 +119,25 @@
 
                             </li>
 
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                                    <i class="fas fa-file-invoice-dollar"></i> Tài chính
-                                </a>
-                                <ul class="dropdown-menu">
-                                    <li><a class="dropdown-item" asp-controller="Invoice" asp-action="Index">
-                                        <i class="fas fa-file-invoice"></i> Hóa đơn
-                                    </a></li>
-                                    @if (isManagerOrAdmin)
-                                    {
-                                        <li><a class="dropdown-item" asp-controller="Report" asp-action="Index">
-                                            <i class="fas fa-chart-line"></i> Báo cáo & Thống kê
+                            @if (!isRoomOperations)
+                            {
+                                <li class="nav-item dropdown">
+                                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                        <i class="fas fa-file-invoice-dollar"></i> Tài chính
+                                    </a>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" asp-controller="Invoice" asp-action="Index">
+                                            <i class="fas fa-file-invoice"></i> Hóa đơn
                                         </a></li>
-                                    }
-                                </ul>
-                            </li>
+                                        @if (isManagerOrAdmin)
+                                        {
+                                            <li><a class="dropdown-item" asp-controller="Report" asp-action="Index">
+                                                <i class="fas fa-chart-line"></i> Báo cáo & Thống kê
+                                            </a></li>
+                                        }
+                                    </ul>
+                                </li>
+                            }
                             @if (isManagerOrAdmin)
                             {
                                 <li class="nav-item dropdown">

@@ -9,14 +9,28 @@
     var now = DateTime.UtcNow.AddHours(7);
     var role = Context.Session.GetString("Role");
     var canManage = role == "MANAGER" || role == "ADMIN";
+    var isRoomOperations = ViewBag.IsRoomOperationsRole == true;
+    var limitedTaskType = ViewBag.LimitedTaskType as string;
+    var pageTitle = role == "CLEANER"
+        ? "Dọn phòng"
+        : role == "TECHNICIAN"
+            ? "Bảo trì"
+            : "Bảo trì và dọn phòng";
+    var pageSubtitle = role == "CLEANER"
+        ? "Theo dõi và xử lý danh sách công việc dọn phòng được phân công cho bạn"
+        : role == "TECHNICIAN"
+            ? "Theo dõi và xử lý danh sách công việc bảo trì được phân công cho bạn"
+            : "Theo dõi, tạo và xử lý công việc vận hành phòng";
+    var pageIcon = role == "TECHNICIAN" ? "fas fa-tools" : "fas fa-broom";
+    ViewData["Title"] = pageTitle;
 }
 
 <div class="page-header fade-in-up">
     <h1>
-        <i class="fas fa-broom"></i>
-        Bảo trì và dọn phòng
+        <i class="@pageIcon"></i>
+        @pageTitle
     </h1>
-    <p>Theo dõi, tạo và xử lý công việc vận hành phòng</p>
+    <p>@pageSubtitle</p>
 </div>
 
 <div class="row g-3 mb-4">
@@ -92,12 +106,15 @@
     <div class="card-header-modern d-flex justify-content-between align-items-center">
         <span><i class="fas fa-filter me-2"></i>Bộ lọc công việc</span>
         <div class="d-flex gap-2">
-            <a asp-action="CreateCleaningTask" class="btn btn-success-modern btn-sm">
-                <i class="fas fa-broom"></i> Tạo dọn phòng
-            </a>
-            <a asp-action="CreateMaintenanceTask" class="btn btn-warning-modern btn-sm">
-                <i class="fas fa-tools"></i> Tạo bảo trì
-            </a>
+            @if (!isRoomOperations)
+            {
+                <a asp-action="CreateCleaningTask" class="btn btn-success-modern btn-sm">
+                    <i class="fas fa-broom"></i> Tạo dọn phòng
+                </a>
+                <a asp-action="CreateMaintenanceTask" class="btn btn-warning-modern btn-sm">
+                    <i class="fas fa-tools"></i> Tạo bảo trì
+                </a>
+            }
             @if (canManage)
             {
                 <a asp-action="Report" class="btn btn-info-modern btn-sm">
@@ -114,9 +131,17 @@
             </div>
             <div class="col-md-2">
                 <label class="form-label-modern">Loại việc</label>
-                <select name="taskType" class="form-select form-control-modern" asp-items="ViewBag.TaskTypes">
-                    <option value="">Tất cả</option>
-                </select>
+                @if (isRoomOperations && !string.IsNullOrWhiteSpace(limitedTaskType))
+                {
+                    <input type="hidden" name="taskType" value="@limitedTaskType" />
+                    <input type="text" class="form-control form-control-modern" value="@TaskTypeText(limitedTaskType!)" disabled />
+                }
+                else
+                {
+                    <select name="taskType" class="form-select form-control-modern" asp-items="ViewBag.TaskTypes">
+                        <option value="">Tất cả</option>
+                    </select>
+                }
             </div>
             <div class="col-md-2">
                 <label class="form-label-modern">Trạng thái</label>
@@ -130,12 +155,15 @@
                     <option value="">Tất cả</option>
                 </select>
             </div>
-            <div class="col-md-2">
-                <label class="form-label-modern">Phụ trách</label>
-                <select name="assignedEmployeeID" class="form-select form-control-modern" asp-items="ViewBag.Employees">
-                    <option value="">Tất cả</option>
-                </select>
-            </div>
+            @if (!isRoomOperations)
+            {
+                <div class="col-md-2">
+                    <label class="form-label-modern">Phụ trách</label>
+                    <select name="assignedEmployeeID" class="form-select form-control-modern" asp-items="ViewBag.Employees">
+                        <option value="">Tất cả</option>
+                    </select>
+                </div>
+            }
             <div class="col-md-2">
                 <label class="form-label-modern">Từ ngày</label>
                 <input type="date" name="fromDate" value="@ViewBag.FromDate" class="form-control form-control-modern" />
@@ -157,9 +185,12 @@
                 <a asp-action="Index" class="btn btn-secondary">
                     <i class="fas fa-undo"></i> Đặt lại
                 </a>
-                <a asp-action="History" class="btn btn-outline-secondary">
-                    <i class="fas fa-history"></i> Lịch sử
-                </a>
+                @if (!isRoomOperations)
+                {
+                    <a asp-action="History" class="btn btn-outline-secondary">
+                        <i class="fas fa-history"></i> Lịch sử
+                    </a>
+                }
             </div>
         </form>
     </div>

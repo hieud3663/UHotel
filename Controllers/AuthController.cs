@@ -20,6 +20,12 @@ namespace HotelManagement.Controllers
         {
             if (HttpContext.Session.GetString("UserID") != null)
             {
+                var currentRole = HttpContext.Session.GetString("Role");
+                if (currentRole == EmployeePositions.Cleaner || currentRole == EmployeePositions.Technician)
+                {
+                    return RedirectToAction("Index", "RoomMaintenanceCleaning");
+                }
+
                 return RedirectToAction("Index", "Dashboard");
             }
             return View();
@@ -36,20 +42,44 @@ namespace HotelManagement.Controllers
             }
 
             var user = await _context.Users
+                .Include(u => u.Employee)
                 .FirstOrDefaultAsync(u => u.Username == username && u.IsActivate == "ACTIVATE");
 
             if (user != null && BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
             {
+                var effectiveRole = ResolveEffectiveRole(user);
+
                 HttpContext.Session.SetString("UserID", user.UserID);
                 HttpContext.Session.SetString("Username", user.Username);
-                HttpContext.Session.SetString("Role", user.Role);
+                HttpContext.Session.SetString("Role", effectiveRole);
                 HttpContext.Session.SetString("EmployeeID", user.EmployeeID);
-                
+                if (!string.IsNullOrWhiteSpace(user.Employee?.Position))
+                {
+                    HttpContext.Session.SetString("Position", user.Employee.Position);
+                }
+
+                if (effectiveRole == EmployeePositions.Cleaner || effectiveRole == EmployeePositions.Technician)
+                {
+                    return RedirectToAction("Index", "RoomMaintenanceCleaning");
+                }
+
                 return RedirectToAction("Index", "Dashboard");
             }
 
             ViewBag.Error = "Tên đăng nhập hoặc mật khẩu không đúng";
             return View();
+        }
+
+        private static string ResolveEffectiveRole(User user)
+        {
+            if (user.Role == "EMPLOYEE" &&
+                (user.Employee?.Position == EmployeePositions.Cleaner ||
+                 user.Employee?.Position == EmployeePositions.Technician))
+            {
+                return user.Employee.Position;
+            }
+
+            return user.Role;
         }
 
         public IActionResult Logout()

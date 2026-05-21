@@ -158,25 +158,49 @@
                     <tbody>
                         @foreach (var item in Model)
                         {
-                            var isOverdue = ViewBag.OverdueReservations != null && 
-                                           ((HashSet<string>)ViewBag.OverdueReservations).Contains(item.ReservationFormID ?? "");
+                            var reservationId = item.ReservationFormID ?? "";
+                            var isLateCheckIn = ViewBag.LateCheckInReservations != null &&
+                                                ((HashSet<string>)ViewBag.LateCheckInReservations).Contains(reservationId);
+                            var isSeriousLateCheckIn = ViewBag.SeriousLateCheckInReservations != null &&
+                                                       ((HashSet<string>)ViewBag.SeriousLateCheckInReservations).Contains(reservationId);
+                            var isExpired = ViewBag.ExpiredReservations != null &&
+                                            ((HashSet<string>)ViewBag.ExpiredReservations).Contains(reservationId);
                             var isRoomOccupied = !string.IsNullOrEmpty(item.RoomID) && occupiedRoomIds.Contains(item.RoomID);
                             var roomStatus = item.Room?.RoomStatus ?? "";
                             var isRoomStatusBlocked = !string.IsNullOrEmpty(roomStatus)
                                 && roomStatus != "AVAILABLE"
                                 && roomStatus != "RESERVED"
                                 && !isRoomOccupied;
-                            var canCheckIn = !isOverdue && !isRoomOccupied && !isRoomStatusBlocked;
-                            var rowClass = isOverdue ? "table-danger" : isRoomOccupied ? "table-warning" : "";
+                            var canCheckIn = !isExpired && !isRoomOccupied && !isRoomStatusBlocked;
+                            var rowClass = isExpired ? "table-danger" : isSeriousLateCheckIn ? "table-warning" : isLateCheckIn ? "table-warning" : isRoomOccupied ? "table-warning" : "";
+                            var checkInConfirmMessage = isSeriousLateCheckIn
+                                ? $"Phiếu {reservationId} đã quá giờ nhận phòng hơn 2 giờ. Xác nhận vẫn check-in cho khách {item.Customer?.FullName}?"
+                                : isLateCheckIn
+                                    ? $"Phiếu {reservationId} đã trễ giờ nhận phòng. Xác nhận check-in muộn cho khách {item.Customer?.FullName}?"
+                                    : $"Xác nhận check-in cho khách {item.Customer?.FullName}?";
                             
                             <tr class="@rowClass" data-reservation-id="@item.ReservationFormID">
                                 <td>
                                     <strong class="text-primary">#@item.ReservationFormID</strong>
-                                    @if (isOverdue)
+                                    @if (isExpired)
                                     {
                                         <br />
                                         <span class="badge bg-danger mt-1">
-                                            <i class="fas fa-exclamation-triangle"></i> Quá hạn
+                                            <i class="fas fa-exclamation-triangle"></i> Hết hạn lưu trú
+                                        </span>
+                                    }
+                                    else if (isSeriousLateCheckIn)
+                                    {
+                                        <br />
+                                        <span class="badge bg-warning text-dark mt-1">
+                                            <i class="fas fa-user-clock"></i> Quá giờ nhận phòng
+                                        </span>
+                                    }
+                                    else if (isLateCheckIn)
+                                    {
+                                        <br />
+                                        <span class="badge bg-info text-dark mt-1">
+                                            <i class="fas fa-clock"></i> Trễ nhận phòng
                                         </span>
                                     }
                                 </td>
@@ -233,9 +257,9 @@
                                             @Html.AntiForgeryToken()
                                             <input type="hidden" name="reservationFormID" value="@item.ReservationFormID" />
                                             <button type="submit" 
-                                                    class="btn btn-success-modern btn-sm" 
-                                                    onclick="return confirm('Xác nhận check-in cho khách @item.Customer?.FullName?');"
-                                                    title="@(isRoomOccupied ? "Chờ khách trước checkout" : isRoomStatusBlocked ? "Phòng chưa khả dụng để check-in" : isOverdue ? "Phiếu đã quá hạn" : "Check-in")"
+                                                    class="btn btn-success-modern btn-sm js-confirm-submit" 
+                                                    data-confirm-message="@checkInConfirmMessage"
+                                                    title="@(isRoomOccupied ? "Chờ khách trước checkout" : isRoomStatusBlocked ? "Phòng chưa khả dụng để check-in" : isExpired ? "Phiếu đã hết hạn lưu trú" : isSeriousLateCheckIn ? "Phiếu quá giờ nhận phòng, cần xác nhận trước khi check-in" : isLateCheckIn ? "Check-in muộn" : "Check-in")"
                                                     @(!canCheckIn ? "disabled" : "")>
                                                 <i class="fas fa-check"></i> Check-in
                                             </button>
@@ -248,8 +272,18 @@
                                            class="btn btn-warning-modern btn-sm" title="In phiếu xác nhận" target="_blank">
                                             <i class="fas fa-receipt"></i>
                                         </a>
-                                        <form asp-action="Delete" asp-route-id="@item.ReservationFormID" method="post" class="d-inline" 
-                                              onsubmit="return confirm('Bạn có chắc muốn xóa phiếu đặt phòng này?');">
+                                        @if (isLateCheckIn || isExpired)
+                                        {
+                                            <form asp-action="MarkNoShow" asp-route-id="@item.ReservationFormID" method="post" class="d-inline js-confirm-form"
+                                                  data-confirm-message="Đánh dấu khách không đến cho phiếu @item.ReservationFormID và giải phóng phòng nếu phù hợp?">
+                                                @Html.AntiForgeryToken()
+                                                <button type="submit" class="btn btn-secondary-modern btn-sm" title="Khách không đến">
+                                                    <i class="fas fa-user-slash"></i>
+                                                </button>
+                                            </form>
+                                        }
+                                        <form asp-action="Delete" asp-route-id="@item.ReservationFormID" method="post" class="d-inline js-confirm-form" 
+                                              data-confirm-message="Bạn có chắc muốn xóa phiếu đặt phòng này?">
                                             @Html.AntiForgeryToken()
                                             <button type="submit" class="btn btn-danger-modern btn-sm" title="Xóa đặt phòng">
                                                 <i class="fas fa-trash"></i>
@@ -268,9 +302,18 @@
 
 @section Scripts {
     <script>
-        // Script đơn giản cho check-in
         $(document).ready(function() {
             console.log('Check-in page loaded');
+
+            $('.js-confirm-submit').on('click', function() {
+                const message = $(this).data('confirm-message');
+                return confirm(message);
+            });
+
+            $('.js-confirm-form').on('submit', function() {
+                const message = $(this).data('confirm-message');
+                return confirm(message);
+            });
         });
     </script>
 }

@@ -236,6 +236,7 @@ namespace HotelManagement.Controllers
                 .Where(r => (string.IsNullOrWhiteSpace(categoryId) || r.RoomCategoryID == categoryId) && r.RoomStatus == "AVAILABLE" && r.IsActivate == "ACTIVATE")
                 .Where(r => !_context.ReservationForms.Any(rf =>
                     rf.RoomID == r.RoomID &&
+                    rf.IsActivate == "ACTIVATE" &&
                     rf.CheckInDate < checkOutDate &&
                     rf.CheckOutDate > checkInDate)
                 )

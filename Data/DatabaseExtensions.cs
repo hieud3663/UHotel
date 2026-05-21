@@ -35,6 +35,18 @@ namespace HotelManagement.Data
     }
 
     /// <summary>
+    /// Model to receive sp_MarkReservationNoShow result
+    /// </summary>
+    public class NoShowResult
+    {
+        public string ReservationFormID { get; set; } = string.Empty;
+        public string RoomID { get; set; } = string.Empty;
+        public string ReservationStatus { get; set; } = string.Empty;
+        public string RoomStatus { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+    }
+
+    /// <summary>
     /// Model to receive sp_QuickCheckout result
     /// </summary>
     public class CheckOutResult
@@ -227,6 +239,30 @@ namespace HotelManagement.Data
             var result = await context.Database
                 .SqlQueryRaw<CheckInResult>(
                     "EXEC sp_QuickCheckin @reservationFormID, @employeeID",
+                    parameters)
+                .ToListAsync();
+
+            return result.FirstOrDefault();
+        }
+
+        /// <summary>
+        /// Execute stored procedure sp_MarkReservationNoShow
+        /// Đánh dấu phiếu khách không đến và giải phóng phòng nếu phù hợp.
+        /// </summary>
+        public static async Task<NoShowResult?> MarkReservationNoShowSP(
+            this HotelManagementContext context,
+            string reservationFormID,
+            string employeeID)
+        {
+            var parameters = new[]
+            {
+                new SqlParameter("@reservationFormID", reservationFormID),
+                new SqlParameter("@employeeID", employeeID)
+            };
+
+            var result = await context.Database
+                .SqlQueryRaw<NoShowResult>(
+                    "EXEC sp_MarkReservationNoShow @reservationFormID, @employeeID",
                     parameters)
                 .ToListAsync();
 

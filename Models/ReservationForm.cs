@@ -60,6 +60,10 @@ namespace HotelManagement.Models
         [StringLength(10)]
         public string IsActivate { get; set; } = "ACTIVATE";
 
+        [Column("reservationStatus")]
+        [StringLength(20)]
+        public string ReservationStatus { get; set; } = "BOOKED";
+
         // Navigation properties
         [ForeignKey("EmployeeID")]
         public virtual Employee? Employee { get; set; }

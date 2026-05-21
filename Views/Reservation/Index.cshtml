@@ -174,14 +174,24 @@
                 <tbody>
                     @foreach (var item in Model)
                     {
+                        var reservationId = item.ReservationFormID ?? "";
                         var isOverdue = ViewBag.OverdueReservations != null && 
-                                       ((HashSet<string>)ViewBag.OverdueReservations).Contains(item.ReservationFormID ?? "");
-                        var rowClass = isOverdue ? "table-danger" : "";
+                                       ((HashSet<string>)ViewBag.OverdueReservations).Contains(reservationId);
+                        var isNoShow = ViewBag.NoShowReservations != null &&
+                                       ((HashSet<string>)ViewBag.NoShowReservations).Contains(reservationId);
+                        var rowClass = isNoShow ? "table-secondary" : isOverdue ? "table-danger" : "";
                         
                         <tr class="@rowClass">
                             <td>
                                 <strong class="text-primary">#@item.ReservationFormID</strong>
-                                @if (isOverdue)
+                                @if (isNoShow)
+                                {
+                                    <br />
+                                    <span class="badge bg-secondary mt-1">
+                                        <i class="fas fa-user-slash"></i> Khách không đến
+                                    </span>
+                                }
+                                else if (isOverdue)
                                 {
                                     <br />
                                     <span class="badge bg-danger mt-1">
@@ -238,7 +248,7 @@
                                        class="btn btn-warning-modern btn-sm" title="In phiếu xác nhận" target="_blank">
                                         <i class="fas fa-receipt"></i>
                                     </a>
-                                    @if (item.HistoryCheckin == null)
+                                    @if (item.HistoryCheckin == null && !isNoShow)
                                     {
                                         <form asp-action="Delete" asp-route-id="@item.ReservationFormID" method="post" class="d-inline" 
                                               onsubmit="return confirm('Bạn có chắc muốn xóa phiếu đặt phòng này?');">

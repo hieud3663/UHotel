@@ -30,7 +30,7 @@ namespace HotelManagement.Controllers
                 .ThenInclude(ro => ro!.RoomCategory)
                 .Include(r => r.Employee)
                 .Include(r => r.HistoryCheckin)
-                .Where(r => r.IsActivate == "ACTIVATE");
+                .Where(r => r.IsActivate == "ACTIVATE" || r.ReservationStatus == "NO_SHOW");
 
             if (!string.IsNullOrEmpty(phoneNumber))
             {
@@ -48,10 +48,16 @@ namespace HotelManagement.Controllers
             }
             
             var reservations = await PagedList<ReservationForm>.CreateAsync(query.OrderByDescending(r => r.ReservationDate), page, pageSize);
+            var now = DateTime.UtcNow.AddHours(7);
             
-            // Đánh dấu phiếu đặt phòng quá hạn
+            // Đánh dấu phiếu đặt phòng quá hạn nhưng chưa được xử lý no-show
             ViewBag.OverdueReservations = reservations
-                .Where(r => r.CheckOutDate < DateTime.UtcNow.AddHours(7) && r.HistoryCheckin == null)
+                .Where(r => r.CheckOutDate < now && r.HistoryCheckin == null && r.ReservationStatus != "NO_SHOW")
+                .Select(r => r.ReservationFormID)
+                .ToHashSet();
+            
+            ViewBag.NoShowReservations = reservations
+                .Where(r => r.ReservationStatus == "NO_SHOW")
                 .Select(r => r.ReservationFormID)
                 .ToHashSet();
             
@@ -79,6 +85,25 @@ namespace HotelManagement.Controllers
                 .FirstOrDefaultAsync(m => m.ReservationFormID == id);
             
             if (reservation == null) return NotFound();
+
+            var now = DateTime.UtcNow.AddHours(7);
+            var isPendingCheckIn = reservation.IsActivate == "ACTIVATE" && reservation.HistoryCheckin == null;
+            var lateCheckInThreshold = TimeSpan.FromHours(2);
+
+            ViewBag.IsLateCheckIn = isPendingCheckIn && reservation.CheckInDate < now && reservation.CheckOutDate >= now;
+            ViewBag.IsSeriousLateCheckIn = isPendingCheckIn && reservation.CheckInDate.Add(lateCheckInThreshold) < now && reservation.CheckOutDate >= now;
+            ViewBag.IsExpired = isPendingCheckIn && reservation.CheckOutDate < now;
+            ViewBag.IsRoomOccupied = false;
+
+            if (isPendingCheckIn && !string.IsNullOrEmpty(reservation.RoomID))
+            {
+                ViewBag.IsRoomOccupied = await _context.HistoryCheckins
+                    .Include(h => h.ReservationForm)
+                    .AnyAsync(h => h.ReservationFormID != id
+                                   && h.ReservationForm != null
+                                   && h.ReservationForm.RoomID == reservation.RoomID
+                                   && !_context.HistoryCheckOuts.Any(co => co.ReservationFormID == h.ReservationFormID));
+            }
 
             return View(reservation);
         }

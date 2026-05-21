@@ -50,9 +50,24 @@ namespace HotelManagement.Controllers
                 .OrderBy(r => r.CheckInDate)
                 .ToListAsync();
 
-            // Đánh dấu phiếu đặt phòng quá hạn
-            ViewBag.OverdueReservations = pendingReservations
-                .Where(r => r.CheckOutDate < DateTime.UtcNow.AddHours(7))
+            var now = DateTime.UtcNow.AddHours(7);
+            var lateCheckInThreshold = TimeSpan.FromHours(2);
+
+            // Đánh dấu phiếu trễ giờ nhận phòng nhưng vẫn còn trong thời gian lưu trú dự kiến
+            ViewBag.LateCheckInReservations = pendingReservations
+                .Where(r => r.CheckInDate < now && r.CheckOutDate >= now)
+                .Select(r => r.ReservationFormID)
+                .ToHashSet();
+
+            // Đánh dấu phiếu trễ nhiều để nhân viên xử lý xác nhận/no-show
+            ViewBag.SeriousLateCheckInReservations = pendingReservations
+                .Where(r => r.CheckInDate.Add(lateCheckInThreshold) < now && r.CheckOutDate >= now)
+                .Select(r => r.ReservationFormID)
+                .ToHashSet();
+
+            // Đánh dấu phiếu đã quá cả thời gian trả phòng, không được check-in nữa
+            ViewBag.ExpiredReservations = pendingReservations
+                .Where(r => r.CheckOutDate < now)
                 .Select(r => r.ReservationFormID)
                 .ToHashSet();
 
@@ -95,6 +110,13 @@ namespace HotelManagement.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
+            var now = DateTime.UtcNow.AddHours(7);
+            if (reservation.CheckOutDate < now)
+            {
+                TempData["Error"] = "Phiếu đặt phòng đã quá thời gian trả phòng, không thể check-in. Vui lòng đánh dấu khách không đến để giải phóng phòng.";
+                return RedirectToAction(nameof(Index));
+            }
+
             try
             {
                 var employeeID = HttpContext.Session.GetString("EmployeeID");
@@ -114,7 +136,7 @@ namespace HotelManagement.Controllers
                         
                         if (receipt != null)
                         {
-                            TempData["Success"] = $"Check-in thành công! Mã check-in: {result.HistoryCheckInID}<br/>Phiếu xác nhận: {receipt.ReceiptID}";
+                            TempData["Success"] = $"Check-in thành công! Mã check-in: {result.HistoryCheckInID}. {result.CheckinStatus}<br/>Phiếu xác nhận: {receipt.ReceiptID}";
                             TempData["ReceiptID"] = receipt.ReceiptID;
                         }
                     }
@@ -129,6 +151,39 @@ namespace HotelManagement.Controllers
                 else
                 {
                     TempData["Error"] = "Không thể check-in. Vui lòng thử lại.";
+                }
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = ex.InnerException?.Message ?? ex.Message;
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> MarkNoShow(string id)
+        {
+            if (!CheckAuth()) return RedirectToAction("Login", "Auth");
+
+            try
+            {
+                var employeeID = HttpContext.Session.GetString("EmployeeID");
+                if (string.IsNullOrEmpty(employeeID))
+                {
+                    TempData["Error"] = "Không xác định được nhân viên xử lý.";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                var result = await _context.MarkReservationNoShowSP(id, employeeID);
+                if (result != null)
+                {
+                    TempData["Success"] = $"Đã đánh dấu khách không đến cho phiếu {result.ReservationFormID}. Phòng {result.RoomID} hiện ở trạng thái {result.RoomStatus}.";
+                }
+                else
+                {
+                    TempData["Error"] = "Không thể đánh dấu khách không đến. Vui lòng thử lại.";
                 }
             }
             catch (Exception ex)

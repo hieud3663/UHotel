@@ -4,6 +4,21 @@
     ViewData["Title"] = "Chi tiết đặt phòng";
     var unit = Model.PriceUnit;
     var duration = (unit == "DAY") ? (Model.CheckOutDate - Model.CheckInDate).TotalDays : (Model.CheckOutDate - Model.CheckInDate).TotalHours;
+    var isLateCheckIn = ViewBag.IsLateCheckIn as bool? ?? false;
+    var isSeriousLateCheckIn = ViewBag.IsSeriousLateCheckIn as bool? ?? false;
+    var isExpired = ViewBag.IsExpired as bool? ?? false;
+    var isRoomOccupied = ViewBag.IsRoomOccupied as bool? ?? false;
+    var roomStatus = Model.Room?.RoomStatus ?? "";
+    var isRoomStatusBlocked = !string.IsNullOrEmpty(roomStatus)
+        && roomStatus != "AVAILABLE"
+        && roomStatus != "RESERVED"
+        && !isRoomOccupied;
+    var canCheckIn = Model.IsActivate == "ACTIVATE" && Model.HistoryCheckin == null && !isExpired && !isRoomOccupied && !isRoomStatusBlocked;
+    var checkInConfirmMessage = isSeriousLateCheckIn
+        ? $"Phiếu {Model.ReservationFormID} đã quá giờ nhận phòng hơn 2 giờ. Xác nhận vẫn check-in cho khách {Model.Customer?.FullName}?"
+        : isLateCheckIn
+            ? $"Phiếu {Model.ReservationFormID} đã trễ giờ nhận phòng. Xác nhận check-in muộn cho khách {Model.Customer?.FullName}?"
+            : $"Xác nhận check-in cho khách {Model.Customer?.FullName}?";
 }
 
 <div class="container-modern">
@@ -48,6 +63,22 @@
                             else if (Model.IsActivate == "ACTIVATE")
                             {
                                 <span class="badge bg-info">Đã đặt</span>
+                                @if (isExpired)
+                                {
+                                    <span class="badge bg-danger ms-1">Hết hạn lưu trú</span>
+                                }
+                                else if (isSeriousLateCheckIn)
+                                {
+                                    <span class="badge bg-warning text-dark ms-1">Quá giờ nhận phòng</span>
+                                }
+                                else if (isLateCheckIn)
+                                {
+                                    <span class="badge bg-info text-dark ms-1">Trễ nhận phòng</span>
+                                }
+                            }
+                            else if (Model.ReservationStatus == "NO_SHOW")
+                            {
+                                <span class="badge bg-secondary">Khách không đến</span>
                             }
                             else
                             {
@@ -207,11 +238,37 @@
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="reservationFormID" value="@Model.ReservationFormID" />
                         <button type="submit" 
-                                class="btn btn-success" 
-                                onclick="return confirm('Xác nhận check-in cho khách @Model.Customer?.FullName?');">
+                                class="btn btn-success js-confirm-submit" 
+                                data-confirm-message="@checkInConfirmMessage"
+                                title="@(isRoomOccupied ? "Chờ khách trước checkout" : isRoomStatusBlocked ? "Phòng chưa khả dụng để check-in" : isExpired ? "Phiếu đã hết hạn lưu trú" : isSeriousLateCheckIn ? "Phiếu quá giờ nhận phòng, cần xác nhận trước khi check-in" : isLateCheckIn ? "Check-in muộn" : "Check-in")"
+                                @(!canCheckIn ? "disabled" : "")>
                             <i class="fas fa-sign-in-alt"></i> Check-in
                         </button>
                     </form>
+
+                    @if (isLateCheckIn || isExpired)
+                    {
+                        <form asp-controller="CheckIn" asp-action="MarkNoShow" asp-route-id="@Model.ReservationFormID" method="post" class="d-inline js-confirm-form"
+                              data-confirm-message="Đánh dấu khách không đến cho phiếu @Model.ReservationFormID và giải phóng phòng nếu phù hợp?">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-secondary">
+                                <i class="fas fa-user-slash"></i> Khách không đến
+                            </button>
+                        </form>
+                    }
+
+                    @if (isRoomOccupied)
+                    {
+                        <span class="badge bg-warning text-dark align-self-center">Phòng đang có khách</span>
+                    }
+                    else if (isRoomStatusBlocked)
+                    {
+                        <span class="badge bg-secondary align-self-center">Phòng chưa khả dụng: @roomStatus</span>
+                    }
+                    else if (isExpired)
+                    {
+                        <span class="badge bg-danger align-self-center">Phiếu đã hết hạn lưu trú</span>
+                    }
                 }
                 @if (Model.HistoryCheckin != null && Model.HistoryCheckOut == null)
                 {
@@ -235,9 +292,18 @@
 
 @section Scripts {
     <script>
-        // Script đơn giản cho reservation details
         $(document).ready(function() {
             console.log('Reservation details page loaded');
+
+            $('.js-confirm-submit').on('click', function() {
+                const message = $(this).data('confirm-message');
+                return confirm(message);
+            });
+
+            $('.js-confirm-form').on('submit', function() {
+                const message = $(this).data('confirm-message');
+                return confirm(message);
+            });
         });
     </script>
 }
